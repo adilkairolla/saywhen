@@ -191,6 +191,68 @@ function format(expr: DateExpr): string {
   }
 }
 
+// ---------- accessible formatting (screen-reader phrasing; NOT re-parseable) ----------
+
+const QUARTER_NAMES = ["first", "second", "third", "fourth"];
+
+function cap(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function accessibleTime(t: { h: number; m: number }): string {
+  const mer = t.h >= 12 ? "PM" : "AM";
+  const h12 = t.h % 12 === 0 ? 12 : t.h % 12;
+  return t.m === 0 ? `${h12} ${mer}` : `${h12}:${String(t.m).padStart(2, "0")} ${mer}`;
+}
+
+function accessibleAnchor(a: Anchor): string {
+  switch (a.kind) {
+    case "now": return "today";
+    case "relday":
+      if (a.offset === 0) return "today";
+      if (a.offset === 1) return "tomorrow";
+      if (a.offset === -1) return "yesterday";
+      return a.offset > 0 ? `${a.offset} days from today` : `${-a.offset} days ago`;
+    case "weekday": {
+      const name = cap(WEEKDAYS[a.day]!);
+      return a.which ? `${a.which} ${name}` : name;
+    }
+    case "calendar": {
+      const { y, m, d } = a;
+      if (m !== undefined && d !== undefined) {
+        return `${cap(MONTHS[m]!)} ${d}${ordinalSuffix(d)}${y !== undefined ? `, ${y}` : ""}`;
+      }
+      if (d !== undefined) return `the ${d}${ordinalSuffix(d)}`;
+      if (m !== undefined) return `${cap(MONTHS[m]!)}${y !== undefined ? ` ${y}` : ""}`;
+      return `the year ${y}`;
+    }
+    case "holiday": return a.year !== undefined ? `${a.id} ${a.year}` : a.id; // names: plan 04
+  }
+}
+
+function accessible(expr: DateExpr): string {
+  switch (expr.type) {
+    case "anchor": return accessibleAnchor(expr.anchor);
+    case "offset": {
+      const unit = expr.n === 1 ? expr.unit : `${expr.unit}s`;
+      if (expr.base.type === "anchor" && expr.base.anchor.kind === "now") {
+        return expr.dir === 1 ? `in ${expr.n} ${unit}` : `${expr.n} ${unit} ago`;
+      }
+      return `${expr.n} ${unit} ${expr.dir === 1 ? "after" : "before"} ${accessible(expr.base)}`;
+    }
+    case "range": return `from ${accessible(expr.start)} to ${accessible(expr.end)}`;
+    case "period": {
+      const p = expr.period;
+      if (p.kind === "quarter" && p.q) return `the ${QUARTER_NAMES[p.q - 1]} quarter of ${expr.which} year`;
+      if (p.kind === "season" && p.s !== undefined) return `${expr.which} ${SEASONS[p.s]![1][0]}`;
+      const noun = p.kind === "quarter" ? "quarter" : p.kind === "season" ? "season" : p.kind;
+      return `${expr.which} ${noun}`;
+    }
+    case "boundary": return `the ${expr.edge} of ${accessible(expr.of)}`;
+    case "withTime": return `${accessible(expr.base)} at ${accessibleTime(expr.time)}`;
+  }
+}
+
 export const en: LocaleAdapter = {
   id: "en",
   tokenize,
@@ -207,7 +269,7 @@ export const en: LocaleAdapter = {
     return null;
   },
   format: (expr) => format(expr),
-  formatAccessible: (expr) => format(expr), // dedicated phrasing: plan 02
+  formatAccessible: (expr) => accessible(expr),
   keyboard: { rows: ["qwertyuiop", "asdfghjkl", "zxcvbnm"] },
   typoMap: TYPO_MAP,
   defaults: { weekStart: 0, dateOrder: "MDY" },
