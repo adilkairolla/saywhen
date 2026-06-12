@@ -83,6 +83,21 @@ describe("buildLattice — slash dates carry ambiguity (spec §5.1)", () => {
   });
 });
 
+describe("dateOrder weighting", () => {
+  test("MDY: D/M reading is dispreferred (0.95)", () => {
+    const cells = buildLattice(testLocale.tokenize("3/4"), testLocale.lexicon, { dateOrder: "MDY" });
+    const [md, dm] = cells[0]!.alternatives;
+    expect(md![0]!.confidence).toBe(1);
+    expect(dm![0]!.confidence).toBe(0.95);
+  });
+  test("DMY: M/D reading is dispreferred", () => {
+    const cells = buildLattice(testLocale.tokenize("3/4"), testLocale.lexicon, { dateOrder: "DMY" });
+    const [md, dm] = cells[0]!.alternatives;
+    expect(md![0]!.confidence).toBe(0.95);
+    expect(dm![0]!.confidence).toBe(1);
+  });
+});
+
 describe("expandStreams", () => {
   test("flattens single-alternative cells into one stream", () => {
     const streams = expandStreams(latticeFor("next friday"));

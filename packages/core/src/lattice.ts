@@ -15,7 +15,7 @@ function sem(p: SemPayload, raw: RawToken, confidence = 1): SemToken {
 }
 
 /** Language-neutral digit-shape classification. Returns null when not digit-shaped. */
-function classifyDigits(raw: RawToken): SemToken[][] | null {
+function classifyDigits(raw: RawToken, dateOrder: "MDY" | "DMY" | "YMD"): SemToken[][] | null {
   const t = raw.text;
 
   const time = /^(\d{1,2}):(\d{2})$/.exec(t);
@@ -27,7 +27,7 @@ function classifyDigits(raw: RawToken): SemToken[][] | null {
   }
 
   const slash = /^(\d{1,4})\/(\d{1,2})(?:\/(\d{1,4}))?$/.exec(t);
-  if (slash) return classifySlashDate(Number(slash[1]), Number(slash[2]), slash[3] === undefined ? null : Number(slash[3]), raw);
+  if (slash) return classifySlashDate(Number(slash[1]), Number(slash[2]), slash[3] === undefined ? null : Number(slash[3]), raw, dateOrder);
 
   if (/^\d+$/.test(t)) {
     const n = Number(t);
@@ -38,7 +38,13 @@ function classifyDigits(raw: RawToken): SemToken[][] | null {
   return null;
 }
 
-function classifySlashDate(a: number, b: number, c: number | null, raw: RawToken): SemToken[][] {
+function classifySlashDate(
+  a: number,
+  b: number,
+  c: number | null,
+  raw: RawToken,
+  dateOrder: "MDY" | "DMY" | "YMD" = "MDY",
+): SemToken[][] {
   const alts: SemToken[][] = [];
   const yearTok = (y: number) => sem({ kind: "YEAR", year: y < 100 ? y + 2000 : y }, raw);
 
@@ -48,15 +54,24 @@ function classifySlashDate(a: number, b: number, c: number | null, raw: RawToken
       alts.push([yearTok(a), sem({ kind: "MONTH", month: b - 1 }, raw), sem({ kind: "NUMBER", n: c }, raw)]);
     }
   } else {
+    // the locale's dispreferred reading carries reduced token confidence (spec §5.4)
+    const mdConf = dateOrder === "DMY" ? 0.95 : 1;
+    const dmConf = dateOrder === "DMY" ? 1 : 0.95;
     // M/D reading
     if (a >= 1 && a <= 12 && b >= 1 && b <= 31) {
-      const seq = [sem({ kind: "MONTH", month: a - 1 }, raw), sem({ kind: "NUMBER", n: b }, raw)];
+      const seq = [
+        sem({ kind: "MONTH", month: a - 1 }, raw, mdConf),
+        sem({ kind: "NUMBER", n: b }, raw, mdConf),
+      ];
       if (c !== null) seq.push(yearTok(c));
       alts.push(seq);
     }
     // D/M reading — skip when identical to M/D (e.g. "3/3")
     if (b >= 1 && b <= 12 && a >= 1 && a <= 31 && a !== b) {
-      const seq = [sem({ kind: "NUMBER", n: a }, raw), sem({ kind: "MONTH", month: b - 1 }, raw)];
+      const seq = [
+        sem({ kind: "NUMBER", n: a }, raw, dmConf),
+        sem({ kind: "MONTH", month: b - 1 }, raw, dmConf),
+      ];
       if (c !== null) seq.push(yearTok(c));
       alts.push(seq);
     }
@@ -69,6 +84,7 @@ function classifySlashDate(a: number, b: number, c: number | null, raw: RawToken
 export interface LatticeOptions {
   /** returns a corrected lexicon key for an unknown word, or null */
   correct?: (raw: RawToken) => CorrectionHit | null;
+  dateOrder?: "MDY" | "DMY" | "YMD";
 }
 
 export function buildLattice(
@@ -77,7 +93,7 @@ export function buildLattice(
   opts: LatticeOptions = {},
 ): LatticeCell[] {
   return rawTokens.map((raw) => {
-    const digits = classifyDigits(raw);
+    const digits = classifyDigits(raw, opts.dateOrder ?? "MDY");
     if (digits) return { raw, alternatives: digits };
     const payloads = lookupLexicon(lexicon, raw.text);
     if (payloads) return { raw, alternatives: payloads.map((p) => [sem(p, raw)]) };
