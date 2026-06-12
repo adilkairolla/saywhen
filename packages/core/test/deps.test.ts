@@ -13,10 +13,10 @@ describe("dependency rules (spec §3)", () => {
     expect(core.peerDependencies).toBeUndefined();
   });
 
-  test("@saywhen/locale-en depends on core as a peer only", () => {
-    const en = pkg("packages/locale-en");
-    expect(Object.keys(en.dependencies ?? {})).toEqual([]);
-    expect(Object.keys(en.peerDependencies ?? {})).toEqual(["@saywhen/core"]);
+  test.each(["locale-en", "locale-ru"])("%s depends on core as a peer only", (name) => {
+    const p = pkg(`packages/${name}`);
+    expect(Object.keys(p.dependencies ?? {})).toEqual([]);
+    expect(Object.keys(p.peerDependencies ?? {})).toEqual(["@saywhen/core"]);
   });
 
   test("core source never imports from other packages", () => {
