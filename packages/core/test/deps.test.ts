@@ -13,11 +13,14 @@ describe("dependency rules (spec §3)", () => {
     expect(core.peerDependencies).toBeUndefined();
   });
 
-  test.each(["locale-en", "locale-ru"])("%s depends on core as a peer only", (name) => {
-    const p = pkg(`packages/${name}`);
-    expect(Object.keys(p.dependencies ?? {})).toEqual([]);
-    expect(Object.keys(p.peerDependencies ?? {})).toEqual(["@saywhen/core"]);
-  });
+  test.each(["locale-en", "locale-ru", "holidays-us", "holidays-ru"])(
+    "%s depends on core as a peer only",
+    (name) => {
+      const p = pkg(`packages/${name}`);
+      expect(Object.keys(p.dependencies ?? {})).toEqual([]);
+      expect(Object.keys(p.peerDependencies ?? {})).toEqual(["@saywhen/core"]);
+    },
+  );
 
   test("core source never imports from other packages", () => {
     // tsconfig lib already excludes DOM; this guards package boundaries
