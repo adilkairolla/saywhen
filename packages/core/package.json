@@ -1,0 +1,12 @@
+{
+  "name": "@saywhen/core",
+  "version": "0.0.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {},
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  }
+}

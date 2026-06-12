@@ -1,0 +1,14 @@
+{
+  "name": "saywhen-monorepo",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@9.15.0",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "pnpm -r --filter './packages/*' exec tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3",
+    "vitest": "^3.1.0"
+  }
+}
