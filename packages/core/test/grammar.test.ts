@@ -126,3 +126,143 @@ describe("expectations surface from parseStream", () => {
     expect([...expectations.kinds]).toContain("WEEKDAY");
   });
 });
+
+describe("offset arithmetic", () => {
+  const nextFriday = { type: "anchor", anchor: { kind: "weekday", day: 5, which: "next" } };
+
+  test("acid-test shape: 'next friday + 2 weeks'", () => {
+    expect(exprs([toks.rel("next"), toks.weekday(5), toks.op(1), toks.num(2), toks.unit("week")]))
+      .toContainEqual({ type: "offset", base: nextFriday, n: 2, unit: "week", dir: 1 });
+  });
+
+  test("'2 weeks after next friday' produces the SAME AST", () => {
+    expect(exprs([toks.num(2), toks.unit("week"), toks.dir("after"), toks.rel("next"), toks.weekday(5)]))
+      .toContainEqual({ type: "offset", base: nextFriday, n: 2, unit: "week", dir: 1 });
+  });
+
+  test("'3 days before march 4' negates direction", () => {
+    expect(exprs([toks.num(3), toks.unit("day"), toks.dir("before"), toks.month(2), toks.num(4)]))
+      .toContainEqual({
+        type: "offset",
+        base: { type: "anchor", anchor: { kind: "calendar", m: 2, d: 4 } },
+        n: 3, unit: "day", dir: -1,
+      });
+  });
+
+  test("chained postfix ops fold left: 'tomorrow + 2 weeks - 3 days'", () => {
+    expect(exprs([toks.relday(1), toks.op(1), toks.num(2), toks.unit("week"), toks.op(-1), toks.num(3), toks.unit("day")]))
+      .toContainEqual({
+        type: "offset",
+        base: { type: "offset", base: { type: "anchor", anchor: { kind: "relday", offset: 1 } }, n: 2, unit: "week", dir: 1 },
+        n: 3, unit: "day", dir: -1,
+      });
+  });
+});
+
+describe("now-relative", () => {
+  const NOW = { type: "anchor", anchor: { kind: "now" } };
+  test("'in 2 weeks'", () => {
+    expect(exprs([toks.dir("in"), toks.num(2), toks.unit("week")]))
+      .toContainEqual({ type: "offset", base: NOW, n: 2, unit: "week", dir: 1 });
+  });
+  test("'3 days ago'", () => {
+    expect(exprs([toks.num(3), toks.unit("day"), toks.dir("ago")]))
+      .toContainEqual({ type: "offset", base: NOW, n: 3, unit: "day", dir: -1 });
+  });
+  test("lookback span: 'last 2 weeks' → range ending now", () => {
+    expect(exprs([toks.rel("last"), toks.num(2), toks.unit("week")]))
+      .toContainEqual({
+        type: "range",
+        start: { type: "offset", base: NOW, n: 2, unit: "week", dir: -1 },
+        end: NOW,
+      });
+  });
+  test("lookahead span: 'next 2 weeks' → range starting now", () => {
+    expect(exprs([toks.rel("next"), toks.num(2), toks.unit("week")]))
+      .toContainEqual({
+        type: "range",
+        start: NOW,
+        end: { type: "offset", base: NOW, n: 2, unit: "week", dir: 1 },
+      });
+  });
+});
+
+describe("periods", () => {
+  test("'next week' (REL + UNIT-as-period)", () => {
+    expect(exprs([toks.rel("next"), toks.unit("week")]))
+      .toContainEqual({ type: "period", period: { kind: "week" }, which: "next" });
+  });
+  test("'this weekend' and bare 'weekend'", () => {
+    const expected = { type: "period", period: { kind: "weekend" }, which: "this" };
+    expect(exprs([toks.rel("this"), toks.period({ kind: "weekend" })])).toContainEqual(expected);
+    expect(exprs([toks.period({ kind: "weekend" })])).toContainEqual(expected);
+  });
+  test("'last quarter'", () => {
+    expect(exprs([toks.rel("last"), toks.period({ kind: "quarter" })]))
+      .toContainEqual({ type: "period", period: { kind: "quarter" }, which: "last" });
+  });
+});
+
+describe("boundary", () => {
+  test("'end of month' → boundary of this-month period", () => {
+    expect(exprs([toks.boundary("end"), toks.filler(), toks.unit("month")]))
+      .toContainEqual({
+        type: "boundary",
+        of: { type: "period", period: { kind: "month" }, which: "this" },
+        edge: "end",
+      });
+  });
+  test("'start of next week'", () => {
+    expect(exprs([toks.boundary("start"), toks.filler(), toks.rel("next"), toks.unit("week")]))
+      .toContainEqual({
+        type: "boundary",
+        of: { type: "period", period: { kind: "week" }, which: "next" },
+        edge: "start",
+      });
+  });
+});
+
+describe("with-time", () => {
+  test("'friday at 5pm' → withTime 17:00", () => {
+    expect(exprs([toks.weekday(5), toks.filler(), toks.num(5), toks.meridiem("pm")]))
+      .toContainEqual({
+        type: "withTime",
+        base: { type: "anchor", anchor: { kind: "weekday", day: 5 } },
+        time: { h: 17, m: 0 },
+      });
+  });
+  test("'tomorrow 17:30' uses 24h TIME token directly", () => {
+    expect(exprs([toks.relday(1), toks.time(17, 30)]))
+      .toContainEqual({
+        type: "withTime",
+        base: { type: "anchor", anchor: { kind: "relday", offset: 1 } },
+        time: { h: 17, m: 30 },
+      });
+  });
+  test("'12am' is midnight, '12pm' is noon", () => {
+    expect(exprs([toks.relday(0), toks.num(12), toks.meridiem("am")]))
+      .toContainEqual(expect.objectContaining({ time: { h: 0, m: 0 } }));
+    expect(exprs([toks.relday(0), toks.num(12), toks.meridiem("pm")]))
+      .toContainEqual(expect.objectContaining({ time: { h: 12, m: 0 } }));
+  });
+});
+
+describe("ranges", () => {
+  test("'monday to friday'", () => {
+    expect(exprs([toks.weekday(1), toks.connector(), toks.weekday(5)]))
+      .toContainEqual({
+        type: "range",
+        start: { type: "anchor", anchor: { kind: "weekday", day: 1 } },
+        end: { type: "anchor", anchor: { kind: "weekday", day: 5 } },
+      });
+  });
+  test("range of compound ends: 'tomorrow to end of month'", () => {
+    expect(exprs([toks.relday(1), toks.connector(), toks.boundary("end"), toks.filler(), toks.unit("month")]))
+      .toHaveLength(1);
+  });
+  test("after a CONNECTOR the parser expects anchor-ish kinds (range-building hook)", () => {
+    const { expectations } = g.parseStream([toks.weekday(1), toks.connector()]);
+    expect(expectations.frontier).toBe(2);
+    expect([...expectations.kinds]).toEqual(expect.arrayContaining(["WEEKDAY", "RELDAY", "MONTH"]));
+  });
+});
