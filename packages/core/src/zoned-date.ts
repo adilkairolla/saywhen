@@ -90,6 +90,11 @@ export function addDays(w: Wall, n: number): Wall {
   return { y: t.getUTCFullYear(), m: t.getUTCMonth(), d: t.getUTCDate(), h: w.h, mi: w.mi };
 }
 
+export function addMinutes(w: Wall, n: number): Wall {
+  const t = new Date(Date.UTC(w.y, w.m, w.d, w.h, w.mi + n));
+  return { y: t.getUTCFullYear(), m: t.getUTCMonth(), d: t.getUTCDate(), h: t.getUTCHours(), mi: t.getUTCMinutes() };
+}
+
 export function daysInMonth(y: number, m: number): number {
   return new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
 }
