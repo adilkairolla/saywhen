@@ -1,11 +1,11 @@
 import type {
-  DateExpr, Lexicon, LocaleAdapter, RawToken, Unit,
+  Anchor, DateExpr, Lexicon, LocaleAdapter, RawToken, Unit,
 } from "@saywhen/core";
 import {
   BOUNDARIES, CARDINALS, CONNECTORS, DIRECTIONS, FILLERS, KEYBOARD_ROWS,
   MERIDIEMS, MONTH_ABBR, MONTHS_GEN, MONTHS_NOM, MONTHS_PREP, ORDINALS,
-  QUARTER_FORMS, RELDAYS, REL_FORMS, SEASONS, TENS, TYPO_MAP, UNIT_FORMS,
-  WEEKDAYS, WEEKEND_FORMS,
+  PERIOD_NOUNS, QUARTER_FORMS, RELDAYS, REL_FORMS, REL_GEN, REL_NOM,
+  SEASONS, TENS, TYPO_MAP, UNIT_COUNT, UNIT_FORMS, WEEKDAYS, WEEKEND_FORMS,
 } from "./data.js";
 
 function buildLexicon(): Lexicon {
@@ -94,6 +94,99 @@ function tokenize(text: string): RawToken[] {
   return out;
 }
 
+// ---------- canonical formatting (re-parseable: every emitted form is lexicon data) ----------
+
+function pad(n: number): string {
+  return String(n).padStart(2, "0");
+}
+
+/** Russian plural selection: 1 день / 2 дня / 5 дней (11–14 always take the third form). */
+export function ruPlural(n: number, [one, few, many]: [string, string, string]): string {
+  const mod100 = n % 100;
+  const mod10 = n % 10;
+  if (mod100 >= 11 && mod100 <= 14) return many;
+  if (mod10 === 1) return one;
+  if (mod10 >= 2 && mod10 <= 4) return few;
+  return many;
+}
+
+const count = (unit: Unit, n: number) => `${n} ${ruPlural(n, UNIT_COUNT[unit])}`;
+
+const RELDAY_WORDS: Record<number, string> = {
+  0: "сегодня", 1: "завтра", 2: "послезавтра", [-1]: "вчера", [-2]: "позавчера",
+};
+
+function formatAnchor(a: Anchor): string {
+  switch (a.kind) {
+    case "now": return "сегодня";
+    case "relday": {
+      const word = RELDAY_WORDS[a.offset];
+      if (word) return word;
+      return a.offset > 0 ? `через ${count("day", a.offset)}` : `${count("day", -a.offset)} назад`;
+    }
+    case "weekday": {
+      const w = WEEKDAYS[a.day]!;
+      return a.which ? `${REL_NOM[a.which][w.gender]} ${w.nom}` : w.nom;
+    }
+    case "calendar": {
+      const { y, m, d } = a;
+      if (m !== undefined && d !== undefined) return `${d} ${MONTHS_GEN[m]}${y !== undefined ? ` ${y}` : ""}`;
+      if (d !== undefined) return `${d}-е`;
+      if (m !== undefined) return `${MONTHS_NOM[m]}${y !== undefined ? ` ${y}` : ""}`;
+      return String(y);
+    }
+    case "holiday": return a.year !== undefined ? `${a.id} ${a.year}` : a.id; // names: plan 04
+  }
+}
+
+/** genitive rendering for boundary targets ("конец этого месяца"); falls back to nominative */
+function formatGen(of: DateExpr): string {
+  if (of.type === "period") {
+    const p = of.period;
+    if (p.kind === "quarter" && p.q) return `${REL_GEN[of.which].m} кв${p.q}`;
+    if (p.kind === "season") {
+      if (p.s === undefined) return format(of);
+      const s = SEASONS[p.s]!;
+      return `${REL_GEN[of.which][s.gender]} ${s.gen}`;
+    }
+    const noun = PERIOD_NOUNS[p.kind];
+    return `${REL_GEN[of.which][noun.gender]} ${noun.gen}`;
+  }
+  if (of.type === "anchor" && of.anchor.kind === "calendar"
+      && of.anchor.m !== undefined && of.anchor.d === undefined && of.anchor.y === undefined) {
+    return MONTHS_GEN[of.anchor.m]!; // "конец марта"
+  }
+  return format(of);
+}
+
+function format(expr: DateExpr): string {
+  switch (expr.type) {
+    case "anchor": return formatAnchor(expr.anchor);
+    case "offset": {
+      if (expr.base.type === "anchor" && expr.base.anchor.kind === "now") {
+        return expr.dir === 1
+          ? `через ${count(expr.unit, expr.n)}`
+          : `${count(expr.unit, expr.n)} назад`;
+      }
+      return `${format(expr.base)} ${expr.dir === 1 ? "+" : "-"} ${count(expr.unit, expr.n)}`;
+    }
+    case "range": return `${format(expr.start)} - ${format(expr.end)}`;
+    case "period": {
+      const p = expr.period;
+      if (p.kind === "quarter" && p.q) return `${REL_NOM[expr.which].m} кв${p.q}`;
+      if (p.kind === "season") {
+        if (p.s === undefined) return `${REL_NOM[expr.which].m} сезон`; // not vocabulary; arbs always index seasons
+        const s = SEASONS[p.s]!;
+        return `${REL_NOM[expr.which][s.gender]} ${s.nom}`;
+      }
+      const noun = PERIOD_NOUNS[p.kind];
+      return `${REL_NOM[expr.which][noun.gender]} ${noun.nom}`;
+    }
+    case "boundary": return `${expr.edge === "start" ? "начало" : "конец"} ${formatGen(expr.of)}`;
+    case "withTime": return `${format(expr.base)} в ${expr.time.h}:${pad(expr.time.m)}`;
+  }
+}
+
 export const ru: LocaleAdapter = {
   id: "ru",
   tokenize,
@@ -109,7 +202,7 @@ export const ru: LocaleAdapter = {
     }
     return null;
   },
-  format: (expr: DateExpr) => JSON.stringify(expr), // replaced in Task 2
+  format: (expr) => format(expr),
   formatAccessible: (expr: DateExpr) => JSON.stringify(expr), // replaced in Task 4
   keyboard: { rows: KEYBOARD_ROWS },
   typoMap: TYPO_MAP,
