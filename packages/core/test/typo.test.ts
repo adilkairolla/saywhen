@@ -55,6 +55,14 @@ describe("correctToken", () => {
     expect(correctToken("mn", lexKeys, testLocale.typoMap, adj)).toBeNull();
     expect(correctToken("123", lexKeys, testLocale.typoMap, adj)).toBeNull();
   });
+  test("curated entries may contain digits: 'b4' → before", () => {
+    expect(correctToken("b4", lexKeys, testLocale.typoMap, adj)).toEqual({
+      to: "before", cost: 0,
+    });
+  });
+  test("digits still never reach edit-distance", () => {
+    expect(correctToken("frid4y", lexKeys, testLocale.typoMap, adj)).toBeNull();
+  });
 });
 
 describe("lattice integration", () => {

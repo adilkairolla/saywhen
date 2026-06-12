@@ -62,9 +62,9 @@ export function correctToken(
   typoMap: Record<string, string> | undefined,
   adj: Adjacency,
 ): CorrectionHit | null {
-  if (/\d/.test(text)) return null;
   const curated = typoMap?.[text];
   if (curated) return { to: curated, cost: 0 };
+  if (/\d/.test(text)) return null;
 
   const threshold = thresholdFor(text.length);
   if (threshold === 0) return null;
