@@ -21,7 +21,10 @@ export interface Resolved {
 export type ResolveOutcome = { ok: true; value: Resolved } | { ok: false; error: string };
 
 interface Ctx {
+  /** reference day for underspecified anchors; range ends re-anchor it to the range start */
   today: Wall; // 00:00 local
+  /** the actual current day — never re-anchored; "now"/relday anchors resolve from here */
+  clockToday: Wall;
   weekStart: 0 | 1;
   allowPast: boolean;
   holidays: NonNullable<ResolveOptions["holidays"]>;
@@ -29,8 +32,10 @@ interface Ctx {
 
 export function resolveExpr(expr: DateExpr, opts: ResolveOptions): ResolveOutcome {
   const nowWall = utcToWall(opts.now, opts.timeZone);
+  const today: Wall = { ...nowWall, h: 0, mi: 0 };
   const ctx: Ctx = {
-    today: { ...nowWall, h: 0, mi: 0 },
+    today,
+    clockToday: today,
     weekStart: opts.weekStart,
     allowPast: opts.allowPast,
     holidays: opts.holidays ?? new Map(),
@@ -107,10 +112,10 @@ function point(w: Wall): Resolved {
 function resolveAnchor(a: Anchor, ctx: Ctx): Resolved {
   switch (a.kind) {
     case "now":
-      return point(ctx.today);
+      return point(ctx.clockToday);
 
     case "relday":
-      return point(addDays(ctx.today, a.offset));
+      return point(addDays(ctx.clockToday, a.offset));
 
     case "weekday": {
       const inThisWeek = addDays(

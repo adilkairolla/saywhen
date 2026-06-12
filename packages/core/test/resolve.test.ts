@@ -150,6 +150,17 @@ describe("compound expressions", () => {
     expect(day(resolveExpr(e, OPTS))).toEqual({ start: "2026-06-12", end: "2026-06-15" });
   });
 
+  test("now-anchored range ends stay absolute: 'last 2 weeks' shape", () => {
+    const e: DateExpr = {
+      type: "range",
+      start: { type: "offset", base: anchor({ kind: "now" }), n: 2, unit: "week", dir: -1 },
+      end: anchor({ kind: "now" }),
+    };
+    expect(day(resolveExpr(e, { ...OPTS, allowPast: true }))).toEqual({
+      start: "2026-05-29", end: "2026-06-12",
+    });
+  });
+
   test("range that ends before it starts errors", () => {
     const e: DateExpr = {
       type: "range",
