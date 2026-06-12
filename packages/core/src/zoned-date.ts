@@ -82,3 +82,48 @@ export function wallToUtc(w: Wall, timeZone: string): Date {
   // past the gap, i.e. the wall time shifted forward.
   return new Date(utcGuess - Math.min(o1, o2) * 60_000);
 }
+
+// ---------- calendar arithmetic (pure proleptic-Gregorian field math) ----------
+
+export function addDays(w: Wall, n: number): Wall {
+  const t = new Date(Date.UTC(w.y, w.m, w.d + n));
+  return { y: t.getUTCFullYear(), m: t.getUTCMonth(), d: t.getUTCDate(), h: w.h, mi: w.mi };
+}
+
+export function daysInMonth(y: number, m: number): number {
+  return new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+}
+
+export function addMonths(w: Wall, n: number): Wall {
+  const total = w.y * 12 + w.m + n;
+  const y = Math.floor(total / 12);
+  const m = ((total % 12) + 12) % 12;
+  return { y, m, d: Math.min(w.d, daysInMonth(y, m)), h: w.h, mi: w.mi };
+}
+
+export function addYears(w: Wall, n: number): Wall {
+  return addMonths(w, n * 12);
+}
+
+/** 0 Sunday … 6 Saturday */
+export function weekdayOf(w: Wall): number {
+  return new Date(Date.UTC(w.y, w.m, w.d)).getUTCDay();
+}
+
+export function startOfWeek(w: Wall, weekStart: 0 | 1): Wall {
+  const back = (weekdayOf(w) - weekStart + 7) % 7;
+  return addDays({ ...w, h: 0, mi: 0 }, -back);
+}
+
+export function startOfMonth(w: Wall): Wall {
+  return { y: w.y, m: w.m, d: 1, h: 0, mi: 0 };
+}
+
+export function endOfMonth(w: Wall): Wall {
+  return { y: w.y, m: w.m, d: daysInMonth(w.y, w.m), h: 0, mi: 0 };
+}
+
+/** Compare calendar dates only (time fields ignored). */
+export function compareWallDate(a: Wall, b: Wall): number {
+  return Date.UTC(a.y, a.m, a.d) - Date.UTC(b.y, b.m, b.d);
+}
