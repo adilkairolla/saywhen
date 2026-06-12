@@ -107,6 +107,10 @@ export function buildGrammar(localeRules: LocaleRule[] = []): Grammar {
   const inP: P = map(seq(tok("DIRECTION", (d) => d.dir === "in"), numUnit), ([, [n, u]]) =>
     A({ type: "offset", base: NOW, n: n.n, unit: u.unit, dir: 1 }, 1),
   );
+  // "in a week" / "через месяц" — bare unit, n = 1 (the article is FILLER)
+  const inBareP: P = map(seq(tok("DIRECTION", (d) => d.dir === "in"), tok("UNIT")), ([, u]) =>
+    A({ type: "offset", base: NOW, n: 1, unit: u.unit, dir: 1 }, 0.9),
+  );
   const agoP: P = map(seq(numUnit, tok("DIRECTION", (d) => d.dir === "ago")), ([[n, u]]) =>
     A({ type: "offset", base: NOW, n: n.n, unit: u.unit, dir: -1 }, 1),
   );
@@ -151,7 +155,7 @@ export function buildGrammar(localeRules: LocaleRule[] = []): Grammar {
   );
 
   const primaryP: P = alt(
-    anchorP, relPeriodP, barePeriodP, lookP, inP, agoP, relOffsetP, boundaryP,
+    anchorP, relPeriodP, barePeriodP, lookP, inP, inBareP, agoP, relOffsetP, boundaryP,
   );
 
   // postfix arithmetic: X (+|-) n UNIT, repeatable, left-folded

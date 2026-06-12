@@ -130,3 +130,13 @@ describe("complete vocabulary (plan 02)", () => {
     expect(top("yest").start.date).toBe("2026-06-11");
   });
 });
+
+describe("bare-unit offsets (plan 04 closes the plan-02 gap)", () => {
+  test.each([
+    ["in a week", "2026-06-19"],
+    ["in a month", "2026-07-12"],
+    ["in a year", "2027-06-12"],
+  ])("'%s' → %s", (text, date) => {
+    expect(top(text).start.date).toBe(date);
+  });
+});

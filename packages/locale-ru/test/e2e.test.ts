@@ -99,3 +99,13 @@ describe("typos (ЙЦУКЕН keyboard + curated map)", () => {
     expect(top(text).start.date).toBe(date);
   });
 });
+
+describe("bare-unit offsets (plan 04 closes the plan-03 gap)", () => {
+  test.each([
+    ["через неделю", "2026-06-19"],
+    ["через месяц", "2026-07-12"],
+    ["через год", "2027-06-12"],
+  ])("'%s' → %s", (text, date) => {
+    expect(top(text).start.date).toBe(date);
+  });
+});

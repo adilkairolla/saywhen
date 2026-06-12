@@ -266,3 +266,19 @@ describe("ranges", () => {
     expect([...expectations.kinds]).toEqual(expect.arrayContaining(["WEEKDAY", "RELDAY", "MONTH"]));
   });
 });
+
+describe("bare-unit offset: 'in a week' (no explicit number)", () => {
+  test("DIRECTION(in) + UNIT → offset n=1 from now", () => {
+    expect(exprs([toks.dir("in"), toks.unit("week")])).toEqual([
+      { type: "offset", base: { type: "anchor", anchor: { kind: "now" } }, n: 1, unit: "week", dir: 1 },
+    ]);
+  });
+  test("filler between is skipped: 'in a week'", () => {
+    expect(exprs([toks.dir("in"), toks.filler(), toks.unit("week")])).toHaveLength(1);
+  });
+  test("does not double-fire when a number is present", () => {
+    expect(exprs([toks.dir("in"), toks.num(2), toks.unit("week")])).toEqual([
+      { type: "offset", base: { type: "anchor", anchor: { kind: "now" } }, n: 2, unit: "week", dir: 1 },
+    ]);
+  });
+});
