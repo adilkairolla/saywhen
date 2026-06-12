@@ -4,6 +4,7 @@ import {
   type HolidayPack, type LocaleAdapter, type ParseContext, type Wall,
 } from "@saywhen/core";
 import { SEMANTIC_CASES } from "./cases.js";
+import { FUZZY_TRANSFORMS, MUST_PASS_TRANSFORMS } from "./transforms.js";
 
 export { SEMANTIC_CASES } from "./cases.js";
 
@@ -35,7 +36,7 @@ function wallDate(w: Wall): string {
 }
 
 export function runLocaleConformance(config: ConformanceConfig): void {
-  const { locale, holidays = [], seeds } = config;
+  const { locale, holidays = [], seeds, fuzzyPassRate = 0.7 } = config;
   if (seeds.length < 10) {
     throw new Error(`Conformance config for "${locale.id}" needs ≥ 10 seeds, got ${seeds.length}.`);
   }
@@ -63,6 +64,44 @@ export function runLocaleConformance(config: ConformanceConfig): void {
           expect(top.end.date, `"${text}" end`).toBe(wallDate(expected.value.end));
         });
       }
+    });
+
+    describe("variation matrix — must pass (case/whitespace)", () => {
+      for (const seed of seeds) {
+        for (const [tname, t] of MUST_PASS_TRANSFORMS) {
+          test(`${tname}: "${seed.text}"`, () => {
+            const r = engine.parse(t(seed.text), CONFORMANCE_CTX);
+            const top = r.candidates[0];
+            expect(top, `no parse for transformed "${seed.text}"`).toBeDefined();
+            expect(top!.start.date).toBe(seed.start);
+            expect(top!.end.date).toBe(seed.end ?? seed.start);
+          });
+        }
+      }
+    });
+
+    describe("variation matrix — fuzzy tier (typos)", () => {
+      test(`pass rate ≥ ${fuzzyPassRate}`, () => {
+        let attempted = 0;
+        let passed = 0;
+        const failures: string[] = [];
+        for (const seed of seeds) {
+          for (const [tname, t] of FUZZY_TRANSFORMS) {
+            const mutated = t(seed.text);
+            if (mutated === null) continue; // seed too short for this transform
+            attempted++;
+            const top = engine.parse(mutated, CONFORMANCE_CTX).candidates[0];
+            if (top && top.start.date === seed.start && top.end.date === (seed.end ?? seed.start)) {
+              passed++;
+            } else {
+              failures.push(`${tname}: "${mutated}" (from "${seed.text}")`);
+            }
+          }
+        }
+        expect(attempted).toBeGreaterThan(0);
+        expect(passed / attempted, `fuzzy failures:\n${failures.join("\n")}`)
+          .toBeGreaterThanOrEqual(fuzzyPassRate);
+      });
     });
   });
 }
