@@ -4,8 +4,9 @@ import type {
 import {
   BOUNDARIES, CARDINALS, CONNECTORS, DIRECTIONS, FILLERS, KEYBOARD_ROWS,
   MERIDIEMS, MONTH_ABBR, MONTHS_GEN, MONTHS_NOM, MONTHS_PREP, ORDINALS,
-  PERIOD_NOUNS, QUARTER_FORMS, RELDAYS, REL_FORMS, REL_GEN, REL_NOM,
-  SEASONS, TENS, TYPO_MAP, UNIT_COUNT, UNIT_FORMS, WEEKDAYS, WEEKEND_FORMS,
+  ORD_QUARTER, PERIOD_NOUNS, QUARTER_FORMS, RELDAYS, REL_ACC, REL_FORMS,
+  REL_GEN, REL_INS, REL_NOM, SEASONS, TENS, TYPO_MAP, UNIT_COUNT, UNIT_FORMS,
+  WEEKDAYS, WEEKEND_FORMS,
 } from "./data.js";
 
 function buildLexicon(): Lexicon {
@@ -187,6 +188,82 @@ function format(expr: DateExpr): string {
   }
 }
 
+// ---------- accessible formatting (screen-reader phrasing; NOT re-parseable) ----------
+
+/** genitive anchor — after "после"/"до"/"с" */
+function accAnchorGen(a: Anchor): string {
+  if (a.kind === "weekday") {
+    const w = WEEKDAYS[a.day]!;
+    return a.which ? `${REL_GEN[a.which][w.gender]} ${w.gen}` : w.gen;
+  }
+  return accessibleAnchor(a); // reldays are indeclinable; calendar forms already read naturally
+}
+
+/** accusative anchor — after "по" */
+function accAnchorAcc(a: Anchor): string {
+  if (a.kind === "weekday") {
+    const w = WEEKDAYS[a.day]!;
+    return a.which ? `${REL_ACC[a.which][w.gender]} ${w.acc}` : w.acc;
+  }
+  return accessibleAnchor(a);
+}
+
+const accGen = (e: DateExpr): string => (e.type === "anchor" ? accAnchorGen(e.anchor) : accessible(e));
+const accAcc = (e: DateExpr): string => (e.type === "anchor" ? accAnchorAcc(e.anchor) : accessible(e));
+
+function accessibleAnchor(a: Anchor): string {
+  switch (a.kind) {
+    case "now": return "сегодня";
+    case "relday": {
+      const word = RELDAY_WORDS[a.offset];
+      if (word) return word;
+      return a.offset > 0 ? `через ${count("day", a.offset)}` : `${count("day", -a.offset)} назад`;
+    }
+    case "weekday": {
+      const w = WEEKDAYS[a.day]!;
+      return a.which ? `${REL_NOM[a.which][w.gender]} ${w.nom}` : w.nom;
+    }
+    case "calendar": {
+      const { y, m, d } = a;
+      if (m !== undefined && d !== undefined) {
+        return `${d} ${MONTHS_GEN[m]}${y !== undefined ? ` ${y} года` : ""}`;
+      }
+      if (d !== undefined) return `${d}-е число`;
+      if (m !== undefined) return `${MONTHS_NOM[m]}${y !== undefined ? ` ${y} года` : ""}`;
+      return `${y} год`;
+    }
+    case "holiday": return a.year !== undefined ? `${a.id} ${a.year}` : a.id;
+  }
+}
+
+function accessible(expr: DateExpr): string {
+  switch (expr.type) {
+    case "anchor": return accessibleAnchor(expr.anchor);
+    case "offset": {
+      if (expr.base.type === "anchor" && expr.base.anchor.kind === "now") {
+        return expr.dir === 1
+          ? `через ${count(expr.unit, expr.n)}`
+          : `${count(expr.unit, expr.n)} назад`;
+      }
+      return `${count(expr.unit, expr.n)} ${expr.dir === 1 ? "после" : "до"} ${accGen(expr.base)}`;
+    }
+    case "range": return `с ${accGen(expr.start)} по ${accAcc(expr.end)}`;
+    case "period": {
+      const p = expr.period;
+      if (p.kind === "quarter" && p.q) {
+        return `${ORD_QUARTER[p.q - 1]} квартал ${REL_GEN[expr.which].m} года`;
+      }
+      if (p.kind === "season" && p.s !== undefined) {
+        const s = SEASONS[p.s]!;
+        return `${REL_INS[expr.which][s.gender]} ${s.ins}`;
+      }
+      return format(expr); // "эта неделя", "прошлый квартал" — already natural
+    }
+    case "boundary": return format(expr); // "конец этого месяца" — already genitive
+    case "withTime": return `${accessible(expr.base)} в ${expr.time.h}:${pad(expr.time.m)}`;
+  }
+}
+
 export const ru: LocaleAdapter = {
   id: "ru",
   tokenize,
@@ -203,7 +280,7 @@ export const ru: LocaleAdapter = {
     return null;
   },
   format: (expr) => format(expr),
-  formatAccessible: (expr: DateExpr) => JSON.stringify(expr), // replaced in Task 4
+  formatAccessible: (expr) => accessible(expr),
   keyboard: { rows: KEYBOARD_ROWS },
   typoMap: TYPO_MAP,
   defaults: { weekStart: 1, dateOrder: "DMY" },
