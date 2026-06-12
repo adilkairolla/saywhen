@@ -100,3 +100,33 @@ describe("round-trip: candidate.text re-parses to the same dates (spec §9.3 see
     expect(second.end.date).toBe(first.end.date);
   });
 });
+
+describe("complete vocabulary (plan 02)", () => {
+  test.each([
+    ["the twenty first of march", "2027-03-21"],
+    ["march twenty first", "2027-03-21"],
+    ["the third", "2026-07-03"],            // bare word ordinal rolls past 06-12 → next month
+    ["seventeen days from today", "2026-06-29"],
+    ["twenty one days from tomorrow", "2026-07-04"],
+    ["tues", "2026-06-16"],
+    ["thurs", "2026-06-18"],
+    ["weds", "2026-06-17"],
+  ])("'%s' → %s", (text, date) => {
+    expect(top(text).start.date).toBe(date);
+  });
+
+  test("'tomorrow at noon' → 16:00Z (EDT)", () => {
+    expect(top("tomorrow at noon").start.utcIso).toBe("2026-06-13T16:00:00.000Z");
+  });
+  test("'tomorrow at midnight' → 04:00Z", () => {
+    expect(top("tomorrow at midnight").start.utcIso).toBe("2026-06-13T04:00:00.000Z");
+  });
+
+  test("curated abbreviations with digits: '2moro', '3 days b4 march 4'", () => {
+    expect(top("2moro").start.date).toBe("2026-06-13");
+    expect(top("3 days b4 march 4").start.date).toBe("2027-03-01");
+  });
+  test("'yest' corrects to yesterday", () => {
+    expect(top("yest").start.date).toBe("2026-06-11");
+  });
+});
