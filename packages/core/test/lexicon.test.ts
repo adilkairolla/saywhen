@@ -2,6 +2,8 @@ import { describe, expect, test } from "vitest";
 import { normalizeText } from "../src/normalize.js";
 import { lookupLexicon, validateLocale } from "../src/lexicon.js";
 import type { Lexicon, LocaleAdapter } from "../src/types.js";
+import { testLocale } from "./fixtures/test-locale.js";
+import { toks } from "./fixtures/toks.js";
 
 describe("normalizeText", () => {
   test("lowercases and NFKC-folds", () => {
@@ -70,4 +72,18 @@ describe("validateLocale", () => {
     l["today"] = [{ kind: "RELDAY", offset: 0 }];
     return l;
   }
+});
+
+describe("fixtures", () => {
+  test("testLocale passes validateLocale and tokenizes '5pm'", () => {
+    expect(() => validateLocale(testLocale)).not.toThrow();
+    expect(testLocale.tokenize("friday 5pm").map((t) => t.text)).toEqual(["friday", "5", "pm"]);
+    expect(testLocale.tokenize("the 21st").map((t) => t.text)).toEqual(["the", "21st"]);
+  });
+  test("toks factory stamps spans and confidence", () => {
+    toks.reset();
+    const w = toks.weekday(5);
+    expect(w).toMatchObject({ kind: "WEEKDAY", day: 5, confidence: 1 });
+    expect(w.span[1]).toBeGreaterThan(w.span[0]);
+  });
 });
