@@ -1,0 +1,17 @@
+{
+  "name": "@saywhen/locale-en",
+  "version": "0.0.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "peerDependencies": {
+    "@saywhen/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@saywhen/core": "workspace:*"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  }
+}

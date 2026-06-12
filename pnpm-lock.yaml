@@ -17,6 +17,12 @@ importers:
 
   packages/core: {}
 
+  packages/locale-en:
+    devDependencies:
+      '@saywhen/core':
+        specifier: workspace:*
+        version: link:../core
+
 packages:
 
   '@esbuild/aix-ppc64@0.27.7':
