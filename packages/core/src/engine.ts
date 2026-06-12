@@ -28,6 +28,7 @@ export function createEngine(options: CreateEngineOptions): Engine {
   // so phrase tokens match user input exactly ("new year's day" → ["new","year's","day"]).
   const lexicon: Lexicon = { ...locale.lexicon };
   const phrases: PhraseEntry[] = [];
+  const holidayNames: Record<string, string> = {};
   const holidayComputes = new Map<string, (y: number) => { m: number; d: number } | null>();
   for (const pack of holidays) {
     if (!pack.id || !Array.isArray(pack.entries)) {
@@ -44,6 +45,8 @@ export function createEngine(options: CreateEngineOptions): Engine {
           phrases.push({ tokens: words, payload: { kind: "HOLIDAY", id: entry.id } });
         }
       }
+      const canonical = (entry.names[locale.id] ?? [])[0];
+      if (canonical !== undefined) holidayNames[entry.id] = normalizeText(canonical);
     }
   }
 
@@ -102,7 +105,7 @@ export function createEngine(options: CreateEngineOptions): Engine {
 
     const today: Wall = { ...utcToWall(ctx.now, ctx.timeZone), h: 0, mi: 0 };
     const ranked = scoreAndRank(inputs, { today, allowPast }).slice(0, MAX_CANDIDATES);
-    const candidates = ranked.map((s) => toCandidate(s, ctx, locale));
+    const candidates = ranked.map((s) => toCandidate(s, ctx, locale, holidayNames));
     const status = statusFor(ranked);
     if (status === "invalid" && errors.length === 0) {
       errors.push(`Could not interpret "${text}" as a date.`);
@@ -117,7 +120,9 @@ function pad(n: number): string {
   return String(n).padStart(2, "0");
 }
 
-function toCandidate(s: ScoredParse, ctx: ParseContext, locale: LocaleAdapter): Candidate {
+function toCandidate(
+  s: ScoredParse, ctx: ParseContext, locale: LocaleAdapter, holidayNames: Record<string, string>,
+): Candidate {
   const fmtDate = (w: Wall) => `${w.y}-${pad(w.m + 1)}-${pad(w.d)}`;
   const startDate = fmtDate(s.resolved.start);
   const endDate = fmtDate(s.resolved.end);
@@ -128,6 +133,6 @@ function toCandidate(s: ScoredParse, ctx: ParseContext, locale: LocaleAdapter): 
     isRange: startDate !== endDate,
     hasExplicitTime: s.resolved.hasExplicitTime,
     confidence: s.confidence,
-    text: locale.format(s.expr, { now: ctx.now, timeZone: ctx.timeZone }),
+    text: locale.format(s.expr, { now: ctx.now, timeZone: ctx.timeZone, holidayNames }),
   };
 }

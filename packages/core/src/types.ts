@@ -78,6 +78,8 @@ export interface KeyboardLayout {
 export interface FormatOptions {
   now: Date;
   timeZone: string;
+  /** holiday id → canonical display name for the active locale (engine-provided) */
+  holidayNames?: Record<string, string>;
 }
 
 export interface LocaleRule {

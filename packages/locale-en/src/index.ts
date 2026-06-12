@@ -147,7 +147,9 @@ function periodName(p: PeriodRef): string {
   }
 }
 
-function formatAnchor(a: Anchor): string {
+type HolidayNames = Record<string, string>;
+
+function formatAnchor(a: Anchor, names: HolidayNames): string {
   switch (a.kind) {
     case "now": return "today";
     case "relday":
@@ -168,13 +170,16 @@ function formatAnchor(a: Anchor): string {
       if (m !== undefined) return `${MONTHS[m]}${y !== undefined ? ` ${y}` : ""}`;
       return String(y);
     }
-    case "holiday": return a.year !== undefined ? `${a.id} ${a.year}` : a.id; // names: plan 04
+    case "holiday": {
+      const name = names[a.id] ?? a.id;
+      return a.year !== undefined ? `${name} ${a.year}` : name;
+    }
   }
 }
 
-function format(expr: DateExpr): string {
+function format(expr: DateExpr, names: HolidayNames): string {
   switch (expr.type) {
-    case "anchor": return formatAnchor(expr.anchor);
+    case "anchor": return formatAnchor(expr.anchor, names);
     case "offset": {
       if (expr.base.type === "anchor" && expr.base.anchor.kind === "now") {
         return expr.dir === 1
@@ -182,12 +187,12 @@ function format(expr: DateExpr): string {
           : `${expr.n} ${expr.n === 1 ? expr.unit : `${expr.unit}s`} ago`;
       }
       const unit = expr.n === 1 ? expr.unit : `${expr.unit}s`;
-      return `${format(expr.base)} ${expr.dir === 1 ? "+" : "-"} ${expr.n} ${unit}`;
+      return `${format(expr.base, names)} ${expr.dir === 1 ? "+" : "-"} ${expr.n} ${unit}`;
     }
-    case "range": return `${format(expr.start)} to ${format(expr.end)}`;
+    case "range": return `${format(expr.start, names)} to ${format(expr.end, names)}`;
     case "period": return `${expr.which} ${periodName(expr.period)}`;
-    case "boundary": return `${expr.edge === "start" ? "start" : "end"} of ${format(expr.of)}`;
-    case "withTime": return `${format(expr.base)} at ${formatTime(expr.time)}`;
+    case "boundary": return `${expr.edge === "start" ? "start" : "end"} of ${format(expr.of, names)}`;
+    case "withTime": return `${format(expr.base, names)} at ${formatTime(expr.time)}`;
   }
 }
 
@@ -205,7 +210,7 @@ function accessibleTime(t: { h: number; m: number }): string {
   return t.m === 0 ? `${h12} ${mer}` : `${h12}:${String(t.m).padStart(2, "0")} ${mer}`;
 }
 
-function accessibleAnchor(a: Anchor): string {
+function accessibleAnchor(a: Anchor, names: HolidayNames): string {
   switch (a.kind) {
     case "now": return "today";
     case "relday":
@@ -226,21 +231,24 @@ function accessibleAnchor(a: Anchor): string {
       if (m !== undefined) return `${cap(MONTHS[m]!)}${y !== undefined ? ` ${y}` : ""}`;
       return `the year ${y}`;
     }
-    case "holiday": return a.year !== undefined ? `${a.id} ${a.year}` : a.id; // names: plan 04
+    case "holiday": {
+      const name = cap(names[a.id] ?? a.id);
+      return a.year !== undefined ? `${name} ${a.year}` : name;
+    }
   }
 }
 
-function accessible(expr: DateExpr): string {
+function accessible(expr: DateExpr, names: HolidayNames): string {
   switch (expr.type) {
-    case "anchor": return accessibleAnchor(expr.anchor);
+    case "anchor": return accessibleAnchor(expr.anchor, names);
     case "offset": {
       const unit = expr.n === 1 ? expr.unit : `${expr.unit}s`;
       if (expr.base.type === "anchor" && expr.base.anchor.kind === "now") {
         return expr.dir === 1 ? `in ${expr.n} ${unit}` : `${expr.n} ${unit} ago`;
       }
-      return `${expr.n} ${unit} ${expr.dir === 1 ? "after" : "before"} ${accessible(expr.base)}`;
+      return `${expr.n} ${unit} ${expr.dir === 1 ? "after" : "before"} ${accessible(expr.base, names)}`;
     }
-    case "range": return `from ${accessible(expr.start)} to ${accessible(expr.end)}`;
+    case "range": return `from ${accessible(expr.start, names)} to ${accessible(expr.end, names)}`;
     case "period": {
       const p = expr.period;
       if (p.kind === "quarter" && p.q) return `the ${QUARTER_NAMES[p.q - 1]} quarter of ${expr.which} year`;
@@ -248,8 +256,8 @@ function accessible(expr: DateExpr): string {
       const noun = p.kind === "quarter" ? "quarter" : p.kind === "season" ? "season" : p.kind;
       return `${expr.which} ${noun}`;
     }
-    case "boundary": return `the ${expr.edge} of ${accessible(expr.of)}`;
-    case "withTime": return `${accessible(expr.base)} at ${accessibleTime(expr.time)}`;
+    case "boundary": return `the ${expr.edge} of ${accessible(expr.of, names)}`;
+    case "withTime": return `${accessible(expr.base, names)} at ${accessibleTime(expr.time)}`;
   }
 }
 
@@ -268,8 +276,8 @@ export const en: LocaleAdapter = {
     }
     return null;
   },
-  format: (expr) => format(expr),
-  formatAccessible: (expr) => accessible(expr),
+  format: (expr, opts) => format(expr, opts.holidayNames ?? {}),
+  formatAccessible: (expr, opts) => accessible(expr, opts.holidayNames ?? {}),
   keyboard: { rows: ["qwertyuiop", "asdfghjkl", "zxcvbnm"] },
   typoMap: TYPO_MAP,
   defaults: { weekStart: 0, dateOrder: "MDY" },
