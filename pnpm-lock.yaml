@@ -47,6 +47,15 @@ importers:
         specifier: workspace:*
         version: link:../core
 
+  packages/locale-ru:
+    devDependencies:
+      '@saywhen/conformance':
+        specifier: workspace:*
+        version: link:../conformance
+      '@saywhen/core':
+        specifier: workspace:*
+        version: link:../core
+
   tools/oracle:
     devDependencies:
       '@saywhen/core':
