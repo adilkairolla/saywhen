@@ -3,3 +3,4 @@ dist/
 .var/
 *.log
 .DS_Store
+tools/oracle/results/

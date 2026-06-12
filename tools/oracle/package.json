@@ -1,0 +1,15 @@
+{
+  "name": "@saywhen-tools/oracle",
+  "version": "0.0.0",
+  "type": "module",
+  "private": true,
+  "devDependencies": {
+    "@saywhen/core": "workspace:*",
+    "@saywhen/locale-en": "workspace:*",
+    "chrono-node": "^2.7.0",
+    "vitest": "^3.1.0"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  }
+}

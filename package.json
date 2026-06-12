@@ -5,7 +5,8 @@
   "packageManager": "pnpm@9.15.0",
   "scripts": {
     "test": "vitest run",
-    "typecheck": "pnpm -r --filter './packages/*' exec tsc --noEmit"
+    "typecheck": "pnpm -r --filter './packages/*' --filter './tools/*' exec tsc --noEmit",
+    "oracle": "ORACLE=1 vitest run tools/oracle/test/run-oracle.test.ts"
   },
   "devDependencies": {
     "@types/node": "^22.15.0",
