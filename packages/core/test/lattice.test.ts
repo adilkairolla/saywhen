@@ -140,3 +140,37 @@ describe("number-word merging (locale parseNumber)", () => {
     expect(buildLattice(testLocale.tokenize("twenty one"), testLocale.lexicon)).toHaveLength(2);
   });
 });
+
+describe("mergePhrases — multi-word lexicon phrases (holiday names)", () => {
+  const phrases = [
+    { tokens: ["new", "year"], payload: { kind: "HOLIDAY", id: "new-year" } as const },
+    { tokens: ["new", "year", "day"], payload: { kind: "HOLIDAY", id: "new-year" } as const },
+  ];
+
+  test("a matching run merges into one HOLIDAY cell with a joined span", () => {
+    const cells = buildLattice(testLocale.tokenize("new year"), testLocale.lexicon, { phrases });
+    expect(cells).toHaveLength(1);
+    expect(cells[0]!.raw.span).toEqual([0, 8]);
+    expect(cells[0]!.alternatives).toEqual([
+      [expect.objectContaining({ kind: "HOLIDAY", id: "new-year", source: "new year", confidence: 1 })],
+    ]);
+  });
+
+  test("longest phrase wins at a position", () => {
+    const cells = buildLattice(testLocale.tokenize("new year day"), testLocale.lexicon, { phrases });
+    expect(cells).toHaveLength(1);
+    expect(cells[0]!.alternatives[0]![0]!).toMatchObject({ kind: "HOLIDAY", source: "new year day" });
+  });
+
+  test("non-matching neighbors keep their own cells", () => {
+    const cells = buildLattice(testLocale.tokenize("before new year"), testLocale.lexicon, { phrases });
+    expect(cells).toHaveLength(2);
+    expect(cells[0]!.alternatives[0]![0]!.kind).toBe("DIRECTION");
+    expect(cells[1]!.alternatives[0]![0]!).toMatchObject({ kind: "HOLIDAY", id: "new-year" });
+  });
+
+  test("no phrases option → unchanged behavior", () => {
+    const cells = buildLattice(testLocale.tokenize("new year"), testLocale.lexicon);
+    expect(cells).toHaveLength(2); // "new" LITERAL + "year" UNIT
+  });
+});

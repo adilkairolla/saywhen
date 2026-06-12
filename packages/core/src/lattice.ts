@@ -81,12 +81,20 @@ function classifySlashDate(
   return alts;
 }
 
+export interface PhraseEntry {
+  /** raw-token texts produced by the locale tokenizer for the phrase, in order */
+  tokens: string[];
+  payload: SemPayload;
+}
+
 export interface LatticeOptions {
   /** returns a corrected lexicon key for an unknown word, or null */
   correct?: (raw: RawToken) => CorrectionHit | null;
   dateOrder?: "MDY" | "DMY" | "YMD";
   /** locale compound-number reader; enables merging adjacent number-word cells */
   parseNumber?: (words: string[]) => number | null;
+  /** multi-word surface phrases (holiday names) merged into single cells before number merging */
+  phrases?: PhraseEntry[];
 }
 
 export function buildLattice(
@@ -109,7 +117,39 @@ export function buildLattice(
     }
     return { raw, alternatives: [[sem({ kind: "LITERAL" }, raw)]] };
   });
-  return opts.parseNumber ? mergeNumberWords(cells, opts.parseNumber) : cells;
+  const phrased = opts.phrases?.length ? mergePhrases(cells, opts.phrases) : cells;
+  return opts.parseNumber ? mergeNumberWords(phrased, opts.parseNumber) : phrased;
+}
+
+/**
+ * Merge runs of cells whose raw texts match a phrase (longest match wins).
+ * The merged cell REPLACES the run — phrases are expected to contain at least
+ * one word that has no standalone vocabulary meaning, so no reading is lost.
+ */
+export function mergePhrases(cells: LatticeCell[], phrases: PhraseEntry[]): LatticeCell[] {
+  const out: LatticeCell[] = [];
+  let i = 0;
+  while (i < cells.length) {
+    let best: PhraseEntry | null = null;
+    for (const ph of phrases) {
+      if (ph.tokens.length < 2 || i + ph.tokens.length > cells.length) continue;
+      if (!ph.tokens.every((t, k) => cells[i + k]!.raw.text === t)) continue;
+      if (!best || ph.tokens.length > best.tokens.length) best = ph;
+    }
+    if (best) {
+      const slice = cells.slice(i, i + best.tokens.length);
+      const raw: RawToken = {
+        text: slice.map((c) => c.raw.text).join(" "),
+        span: [slice[0]!.raw.span[0], slice[slice.length - 1]!.raw.span[1]],
+      };
+      out.push({ raw, alternatives: [[sem(best.payload, raw)]] });
+      i += best.tokens.length;
+    } else {
+      out.push(cells[i]!);
+      i++;
+    }
+  }
+  return out;
 }
 
 function wordNumberInfo(cell: LatticeCell): { n: number; ordinal: boolean } | null {

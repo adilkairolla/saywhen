@@ -124,3 +124,29 @@ describe("holiday packs merge into the lexicon", () => {
     expect(withHolidays.parse("рождество", CTX).status).toBe("invalid");
   });
 });
+
+describe("multi-word holiday names (phrase merge)", () => {
+  const pack: HolidayPack = {
+    id: "phrase-pack",
+    entries: [{
+      id: "new-year",
+      compute: () => ({ m: 0, d: 1 }),
+      names: { test: ["new year day", "new year"] },
+    }],
+  };
+  const eng = createEngine({ locale: testLocale, holidays: [pack] });
+
+  test("a multi-word name parses as one holiday anchor and rolls forward", () => {
+    const r = eng.parse("new year day", CTX);
+    expect(r.status).toBe("valid");
+    expect(r.candidates[0]!.expr).toEqual({ type: "anchor", anchor: { kind: "holiday", id: "new-year" } });
+    expect(r.candidates[0]!.start.date).toBe("2027-01-01"); // Jan 1 2026 already passed
+  });
+
+  test("phrases compose with the grammar: year pin and range end", () => {
+    expect(eng.parse("new year 2030", CTX).candidates[0]!.start.date).toBe("2030-01-01");
+    const range = eng.parse("tomorrow to new year", CTX);
+    expect(range.candidates[0]!.start.date).toBe("2026-06-13");
+    expect(range.candidates[0]!.end.date).toBe("2027-01-01");
+  });
+});

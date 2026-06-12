@@ -4,7 +4,7 @@ import type {
 } from "./types.js";
 import { normalizeText } from "./normalize.js";
 import { validateLocale } from "./lexicon.js";
-import { buildLattice, expandStreams } from "./lattice.js";
+import { buildLattice, expandStreams, type PhraseEntry } from "./lattice.js";
 import { buildGrammar } from "./grammar.js";
 import { buildKeyboardAdjacency, correctToken } from "./typo.js";
 import { resolveExpr } from "./resolve.js";
@@ -22,8 +22,12 @@ export function createEngine(options: CreateEngineOptions): Engine {
   const { locale, holidays = [] } = options;
   validateLocale(locale);
 
-  // merge holiday names for THIS locale into a lexicon copy (spec §4.5)
+  // merge holiday vocabulary for THIS locale (spec §4.5): single-word aliases become
+  // lexicon entries (and get typo correction for free); multi-word aliases become
+  // phrase entries merged in the lattice. Tokenize aliases with the locale tokenizer
+  // so phrase tokens match user input exactly ("new year's day" → ["new","year's","day"]).
   const lexicon: Lexicon = { ...locale.lexicon };
+  const phrases: PhraseEntry[] = [];
   const holidayComputes = new Map<string, (y: number) => { m: number; d: number } | null>();
   for (const pack of holidays) {
     if (!pack.id || !Array.isArray(pack.entries)) {
@@ -31,9 +35,14 @@ export function createEngine(options: CreateEngineOptions): Engine {
     }
     for (const entry of pack.entries) {
       holidayComputes.set(entry.id, entry.compute);
-      for (const name of entry.names[locale.id] ?? []) {
-        const form = normalizeText(name);
-        lexicon[form] = [...(lexicon[form] ?? []), { kind: "HOLIDAY", id: entry.id }];
+      for (const alias of entry.names[locale.id] ?? []) {
+        const words = locale.tokenize(normalizeText(alias)).map((t) => t.text);
+        if (words.length === 1) {
+          const form = words[0]!;
+          lexicon[form] = [...(lexicon[form] ?? []), { kind: "HOLIDAY", id: entry.id }];
+        } else if (words.length > 1) {
+          phrases.push({ tokens: words, payload: { kind: "HOLIDAY", id: entry.id } });
+        }
       }
     }
   }
@@ -57,6 +66,7 @@ export function createEngine(options: CreateEngineOptions): Engine {
     const cells = buildLattice(locale.tokenize(normalized), lexicon, {
       dateOrder,
       parseNumber: (words: string[]) => locale.parseNumber(words),
+      phrases,
       ...(adjacency
         ? {
             correct: (raw: { text: string; span: [number, number] }) => {
