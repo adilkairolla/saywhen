@@ -56,6 +56,7 @@ export function createEngine(options: CreateEngineOptions): Engine {
     const corrections: Correction[] = [];
     const cells = buildLattice(locale.tokenize(normalized), lexicon, {
       dateOrder,
+      parseNumber: (words: string[]) => locale.parseNumber(words),
       ...(adjacency
         ? {
             correct: (raw: { text: string; span: [number, number] }) => {

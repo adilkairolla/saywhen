@@ -85,6 +85,8 @@ export interface LatticeOptions {
   /** returns a corrected lexicon key for an unknown word, or null */
   correct?: (raw: RawToken) => CorrectionHit | null;
   dateOrder?: "MDY" | "DMY" | "YMD";
+  /** locale compound-number reader; enables merging adjacent number-word cells */
+  parseNumber?: (words: string[]) => number | null;
 }
 
 export function buildLattice(
@@ -92,7 +94,7 @@ export function buildLattice(
   lexicon: Lexicon,
   opts: LatticeOptions = {},
 ): LatticeCell[] {
-  return rawTokens.map((raw) => {
+  const cells = rawTokens.map((raw) => {
     const digits = classifyDigits(raw, opts.dateOrder ?? "MDY");
     if (digits) return { raw, alternatives: digits };
     const payloads = lookupLexicon(lexicon, raw.text);
@@ -107,6 +109,59 @@ export function buildLattice(
     }
     return { raw, alternatives: [[sem({ kind: "LITERAL" }, raw)]] };
   });
+  return opts.parseNumber ? mergeNumberWords(cells, opts.parseNumber) : cells;
+}
+
+function wordNumberInfo(cell: LatticeCell): { n: number; ordinal: boolean } | null {
+  if (/\d/.test(cell.raw.text)) return null; // digit tokens never merge
+  if (cell.alternatives.length !== 1) return null;
+  const alt = cell.alternatives[0]!;
+  if (alt.length !== 1 || alt[0]!.kind !== "NUMBER") return null;
+  return { n: alt[0]!.n, ordinal: alt[0]!.ordinal === true };
+}
+
+/** Merge maximal runs of word-NUMBER cells that the locale reads as one number. */
+export function mergeNumberWords(
+  cells: LatticeCell[],
+  parseNumber: (words: string[]) => number | null,
+): LatticeCell[] {
+  const out: LatticeCell[] = [];
+  let i = 0;
+  while (i < cells.length) {
+    if (!wordNumberInfo(cells[i]!)) {
+      out.push(cells[i]!);
+      i++;
+      continue;
+    }
+    let j = i + 1;
+    while (j < cells.length && wordNumberInfo(cells[j]!)) j++;
+    let merged = false;
+    for (let k = j; k > i + 1 && !merged; k--) { // longest window first, ≥ 2 words
+      const slice = cells.slice(i, k);
+      const n = parseNumber(slice.map((c) => c.raw.text));
+      if (n !== null) {
+        const last = wordNumberInfo(slice[slice.length - 1]!)!;
+        const raw: RawToken = {
+          text: slice.map((c) => c.raw.text).join(" "),
+          span: [slice[0]!.raw.span[0], slice[slice.length - 1]!.raw.span[1]],
+        };
+        const confidence = Math.min(...slice.map((c) => c.alternatives[0]![0]!.confidence));
+        out.push({
+          raw,
+          alternatives: [[
+            sem(last.ordinal ? { kind: "NUMBER", n, ordinal: true } : { kind: "NUMBER", n }, raw, confidence),
+          ]],
+        });
+        i = k;
+        merged = true;
+      }
+    }
+    if (!merged) {
+      out.push(cells[i]!);
+      i++;
+    }
+  }
+  return out;
 }
 
 /** Cartesian product of cell alternatives → flat token streams, capped at MAX_STREAMS. */

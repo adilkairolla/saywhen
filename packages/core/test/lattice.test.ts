@@ -111,3 +111,32 @@ describe("expandStreams", () => {
     expect(big.length).toBeLessThanOrEqual(16); // 2^5=32 capped
   });
 });
+
+describe("number-word merging (locale parseNumber)", () => {
+  const opts = { parseNumber: testLocale.parseNumber };
+
+  test("'twenty one' merges into NUMBER(21) with combined span and source", () => {
+    const cells = buildLattice(testLocale.tokenize("twenty one"), testLocale.lexicon, opts);
+    expect(cells).toHaveLength(1);
+    expect(cells[0]!.alternatives).toEqual([[
+      expect.objectContaining({ kind: "NUMBER", n: 21, span: [0, 10], source: "twenty one" }),
+    ]]);
+  });
+
+  test("'twenty first' merges into an ordinal NUMBER(21)", () => {
+    const cells = buildLattice(testLocale.tokenize("twenty first"), testLocale.lexicon, opts);
+    expect(cells[0]!.alternatives[0]![0]).toMatchObject({ kind: "NUMBER", n: 21, ordinal: true });
+  });
+
+  test("invalid compounds stay split: 'one two'", () => {
+    expect(buildLattice(testLocale.tokenize("one two"), testLocale.lexicon, opts)).toHaveLength(2);
+  });
+
+  test("digit tokens never merge: '20 1'", () => {
+    expect(buildLattice(testLocale.tokenize("20 1"), testLocale.lexicon, opts)).toHaveLength(2);
+  });
+
+  test("without the option, nothing merges", () => {
+    expect(buildLattice(testLocale.tokenize("twenty one"), testLocale.lexicon)).toHaveLength(2);
+  });
+});

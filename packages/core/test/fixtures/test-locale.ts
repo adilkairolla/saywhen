@@ -26,6 +26,13 @@ const lexicon: Lexicon = {
   today: [{ kind: "RELDAY", offset: 0 }],
   tomorrow: [{ kind: "RELDAY", offset: 1 }],
   yesterday: [{ kind: "RELDAY", offset: -1 }],
+  // number words for compound-merging tests
+  one: [{ kind: "NUMBER", n: 1 }],
+  two: [{ kind: "NUMBER", n: 2 }],
+  twenty: [{ kind: "NUMBER", n: 20 }],
+  thirty: [{ kind: "NUMBER", n: 30 }],
+  first: [{ kind: "NUMBER", n: 1, ordinal: true }],
+  third: [{ kind: "NUMBER", n: 3, ordinal: true }],
   // rel / units / periods / boundaries
   this: [{ kind: "REL", which: "this" }],
   next: [{ kind: "REL", which: "next" }],
@@ -90,7 +97,20 @@ export const testLocale: LocaleAdapter = {
   tokenize,
   lexicon,
   parseNumber: (words) => {
-    if (words.length === 1 && /^\d+$/.test(words[0]!)) return Number(words[0]);
+    const NUMS: Record<string, number> = { one: 1, two: 2, twenty: 20, thirty: 30 };
+    const ORDS: Record<string, number> = { first: 1, third: 3 };
+    if (words.length === 1) {
+      const w = words[0]!;
+      if (/^\d+$/.test(w)) return Number(w);
+      return NUMS[w] ?? ORDS[w] ?? null;
+    }
+    if (words.length === 2) {
+      const tens = NUMS[words[0]!];
+      const unit = NUMS[words[1]!] ?? ORDS[words[1]!];
+      if (tens !== undefined && tens >= 20 && tens % 10 === 0 && unit !== undefined && unit >= 1 && unit <= 9) {
+        return tens + unit;
+      }
+    }
     return null;
   },
   format: (expr: DateExpr) => JSON.stringify(expr), // structural placeholder for unit tests only

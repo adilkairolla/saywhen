@@ -53,6 +53,16 @@ describe("parse — happy paths", () => {
     // 17:00 Almaty (UTC+5) = 12:00Z
     expect(r.candidates[0]!.start.utcIso).toBe("2026-06-12T12:00:00.000Z");
   });
+
+  test("compound number words: 'the twenty first of march' → next March 21", () => {
+    const r = engine.parse("the twenty first of march", CTX);
+    expect(r.status).toBe("valid");
+    expect(r.candidates[0]!.start.date).toBe("2027-03-21");
+  });
+
+  test("'twenty one days from tomorrow'", () => {
+    expect(engine.parse("twenty one days from tomorrow", CTX).candidates[0]!.start.date).toBe("2026-07-04");
+  });
 });
 
 describe("parse — ambiguity (spec acid case '3/4')", () => {
