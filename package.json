@@ -5,13 +5,16 @@
   "packageManager": "pnpm@9.15.0",
   "scripts": {
     "test": "vitest run",
+    "build": "pnpm -r --filter './packages/*' run build",
     "typecheck": "pnpm -r --filter './packages/*' --filter './tools/*' exec tsc --noEmit",
     "oracle": "ORACLE=1 vitest run tools/oracle/test/run-oracle.test.ts"
   },
   "devDependencies": {
     "@types/node": "^22.15.0",
     "fast-check": "^4.8.0",
+    "tsdown": "^0.22.2",
     "typescript": "^5.8.3",
+    "unrun": "^0.3.1",
     "vitest": "^3.1.0"
   }
 }
