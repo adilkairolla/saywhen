@@ -1,7 +1,8 @@
 {
-  "name": "@saywhen/locale-en",
+  "name": "@saywhen/conformance",
   "version": "0.0.0",
   "type": "module",
+  "private": true,
   "exports": {
     ".": "./src/index.ts"
   },
@@ -9,8 +10,8 @@
     "@saywhen/core": "workspace:*"
   },
   "devDependencies": {
-    "@saywhen/conformance": "workspace:*",
-    "@saywhen/core": "workspace:*"
+    "@saywhen/core": "workspace:*",
+    "vitest": "^3.1.0"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

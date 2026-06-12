@@ -18,10 +18,22 @@ importers:
         specifier: ^3.1.0
         version: 3.2.6(@types/node@22.19.21)
 
+  packages/conformance:
+    devDependencies:
+      '@saywhen/core':
+        specifier: workspace:*
+        version: link:../core
+      vitest:
+        specifier: ^3.1.0
+        version: 3.2.6(@types/node@22.19.21)
+
   packages/core: {}
 
   packages/locale-en:
     devDependencies:
+      '@saywhen/conformance':
+        specifier: workspace:*
+        version: link:../conformance
       '@saywhen/core':
         specifier: workspace:*
         version: link:../core
