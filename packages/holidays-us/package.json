@@ -1,0 +1,30 @@
+{
+  "name": "@saywhen/holidays-us",
+  "version": "0.0.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": ["dist"],
+  "publishConfig": {
+    "access": "public",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js"
+      }
+    }
+  },
+  "peerDependencies": {
+    "@saywhen/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@saywhen/core": "workspace:*",
+    "@saywhen/locale-en": "workspace:*",
+    "@saywhen/locale-ru": "workspace:*"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "typecheck": "tsc --noEmit"
+  }
+}
