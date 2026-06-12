@@ -1,5 +1,6 @@
 import type { Lexicon, RawToken, SemPayload, SemToken } from "./types.js";
 import { lookupLexicon } from "./lexicon.js";
+import type { CorrectionHit } from "./typo.js";
 
 export interface LatticeCell {
   raw: RawToken;
@@ -65,12 +66,29 @@ function classifySlashDate(a: number, b: number, c: number | null, raw: RawToken
   return alts;
 }
 
-export function buildLattice(rawTokens: RawToken[], lexicon: Lexicon): LatticeCell[] {
+export interface LatticeOptions {
+  /** returns a corrected lexicon key for an unknown word, or null */
+  correct?: (raw: RawToken) => CorrectionHit | null;
+}
+
+export function buildLattice(
+  rawTokens: RawToken[],
+  lexicon: Lexicon,
+  opts: LatticeOptions = {},
+): LatticeCell[] {
   return rawTokens.map((raw) => {
     const digits = classifyDigits(raw);
     if (digits) return { raw, alternatives: digits };
     const payloads = lookupLexicon(lexicon, raw.text);
     if (payloads) return { raw, alternatives: payloads.map((p) => [sem(p, raw)]) };
+    const hit = opts.correct?.(raw);
+    if (hit) {
+      const corrected = lookupLexicon(lexicon, hit.to);
+      if (corrected) {
+        const confidence = Math.max(0.5, 1 - 0.2 * Math.max(hit.cost, 0.5));
+        return { raw, alternatives: corrected.map((p) => [sem(p, raw, confidence)]) };
+      }
+    }
     return { raw, alternatives: [[sem({ kind: "LITERAL" }, raw)]] };
   });
 }
