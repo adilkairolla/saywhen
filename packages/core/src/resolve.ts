@@ -122,13 +122,12 @@ function resolveAnchor(a: Anchor, ctx: Ctx): Resolved {
         startOfWeek(ctx.today, ctx.weekStart),
         (a.day - ctx.weekStart + 7) % 7,
       );
-      switch (a.which) {
-        case undefined:
-          return point(addDays(ctx.today, (a.day - weekdayOf(ctx.today) + 7) % 7));
-        case "this": return point(inThisWeek);
-        case "next": return point(addDays(inThisWeek, 7));
-        case "last": return point(addDays(inThisWeek, -7));
+      if (a.which === undefined) {
+        return point(addDays(ctx.today, (a.day - weekdayOf(ctx.today) + 7) % 7));
       }
+      if (a.which === "this") return point(inThisWeek);
+      if (a.which === "next") return point(addDays(inThisWeek, 7));
+      return point(addDays(inThisWeek, -7));
     }
 
     case "calendar":
