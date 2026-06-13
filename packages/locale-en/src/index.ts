@@ -86,6 +86,9 @@ function buildLexicon(): Lexicon {
   add(["in"], { kind: "DIRECTION", dir: "in" });
 
   add(["to", "until", "till", "through", "thru"], { kind: "CONNECTOR" });
+  add(["between"], { kind: "RANGE_OPEN" });
+  add(["and"], { kind: "CONNECTOR" });
+  add(["from"], { kind: "RANGE_OPEN" }); // 'from' also keeps its DIRECTION payload (lattice carries both)
   add(["+", "plus"], { kind: "OP", op: 1 });
   add(["minus"], { kind: "OP", op: -1 });
   add(["-"], { kind: "OP", op: -1 });

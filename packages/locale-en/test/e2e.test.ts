@@ -140,3 +140,34 @@ describe("bare-unit offsets (plan 04 closes the plan-02 gap)", () => {
     expect(top(text).start.date).toBe(date);
   });
 });
+
+describe("range UX (plan 09A)", () => {
+  const rng = (text: string) => {
+    const c = top(text);
+    return { start: c.start.date, end: c.end.date };
+  };
+  test("from … to …", () => {
+    expect(rng("from feb 24 to june 30")).toEqual({ start: "2026-02-24", end: "2026-06-30" });
+  });
+  test("between … and …", () => {
+    expect(rng("between feb 24 and june 30")).toEqual({ start: "2026-02-24", end: "2026-06-30" });
+  });
+  test("month elision: march 1 to 15", () => {
+    expect(rng("march 1 to 15")).toEqual({ start: "2026-03-01", end: "2026-03-15" });
+  });
+  test("mixed-year no longer errors: feb 24 to june 30 2026", () => {
+    expect(rng("feb 24 to june 30 2026")).toEqual({ start: "2026-02-24", end: "2026-06-30" });
+  });
+  test("bare past range prefers the current year", () => {
+    expect(rng("feb 24 to march 5")).toEqual({ start: "2026-02-24", end: "2026-03-05" });
+  });
+  test("wrap still works: nov 1 to feb 28", () => {
+    expect(rng("nov 1 to feb 28")).toEqual({ start: "2026-11-01", end: "2027-02-28" });
+  });
+  test("monthless ordinal range unchanged: the 21st to the 25th", () => {
+    expect(rng("the 21st to the 25th")).toEqual({ start: "2026-06-21", end: "2026-06-25" });
+  });
+  test("'3 to 5' is not a date range", () => {
+    expect(engine.parse("3 to 5", CTX).candidates).toHaveLength(0);
+  });
+});

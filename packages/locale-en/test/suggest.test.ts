@@ -38,4 +38,8 @@ describe("suggest e2e (en)", () => {
     expect(texts(sug.suggest("5pm", CTX)))
       .toEqual(expect.arrayContaining(["today at 5pm", "tomorrow at 5pm"]));
   });
+
+  test("opener no longer blanks typeahead: 'from feb 24 to ' completes", () => {
+    expect(sug.suggest("from feb 24 to ", CTX).suggestions.length).toBeGreaterThan(0);
+  });
 });
