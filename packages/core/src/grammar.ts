@@ -178,7 +178,15 @@ export function buildGrammar(localeRules: LocaleRule[] = []): Grammar {
     A({ type: "range", start: a.expr, end: b.expr }, a.specificity * b.specificity),
   );
 
-  const topP: P = alt(rangeP, exprP, ...exprRules);
+  // postpositional range: "X Y CONNECTOR" — the connector trails both endpoints
+  // (Kazakh "дүйсенбіден жұмаға дейін"). Locale-neutral and safe for medial-connector
+  // locales: after the first exprP the second would have to start on a CONNECTOR token,
+  // which exprP rejects — so en/ru "X CONNECTOR Y" never reaches this rule.
+  const rangePostfixP: P = map(seq(exprP, exprP, tok("CONNECTOR")), ([a, b]) =>
+    A({ type: "range", start: a.expr, end: b.expr }, a.specificity * b.specificity),
+  );
+
+  const topP: P = alt(rangeP, rangePostfixP, exprP, ...exprRules);
 
   function parseStream(stream: SemToken[]): StreamResult {
     const expectations = newExpectations();
