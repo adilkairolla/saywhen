@@ -212,3 +212,13 @@ export const kk: LocaleAdapter = {
   typoMap: TYPO_MAP,
   defaults: { weekStart: 1, dateOrder: "DMY" },
 };
+
+// Latin-emitting sibling: same shared data and union input lexicon; only the canonical
+// output script differs. Output = cyrToLat of kk's Cyrillic format, so the two never drift
+// and every emitted Latin string is itself a lexicon alias (re-parseable under both).
+export const kkLatn: LocaleAdapter = {
+  ...kk,
+  id: "kk-latn",
+  format: (expr, opts: FormatOptions) => cyrToLat(format(expr, opts.holidayNames ?? {})),
+  formatAccessible: (expr, opts: FormatOptions) => cyrToLat(accessible(expr, opts.holidayNames ?? {})),
+};
