@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test } from "vitest";
 import {
-  alt, many, map, newExpectations, opt, seq, tok, type Expectations,
+  alt, filter, many, map, newExpectations, opt, seq, tok, type Expectations,
 } from "../src/combinators.js";
 import { toks } from "./fixtures/toks.js";
 
@@ -86,5 +86,13 @@ describe("expectation frontier", () => {
     tok("MONTH")(s, 0, ex);                    // fails at index 0 — must NOT overwrite
     expect(ex.frontier).toBe(1);
     expect([...ex.kinds]).toEqual(["WEEKDAY"]);
+  });
+});
+
+describe("filter — drops results whose value fails the predicate (map cannot)", () => {
+  test("keeps values that satisfy the predicate, drops the rest", () => {
+    const p = filter(tok("NUMBER"), (v) => v.n > 10);
+    expect(p([toks.num(15)], 0, ex)).toHaveLength(1);
+    expect(p([toks.num(3)], 0, ex)).toHaveLength(0);
   });
 });

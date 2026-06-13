@@ -27,6 +27,7 @@ export type SemPayload =
   | { kind: "OP"; op: 1 | -1 }
   | { kind: "DIRECTION"; dir: "before" | "after" | "from" | "ago" | "in" }
   | { kind: "CONNECTOR" }
+  | { kind: "RANGE_OPEN" }                         // leading range opener: from / between / с / между
   | { kind: "BOUNDARY"; edge: "start" | "end" }
   | { kind: "PERIOD"; period: PeriodRef }
   | { kind: "HOLIDAY"; id: string }

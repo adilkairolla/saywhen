@@ -96,6 +96,11 @@ export function map<T, U>(p: Parser<T>, f: (v: T) => U): Parser<U> {
   return (s, i, ex) => p(s, i, ex).map((r) => ({ v: f(r.v), i: r.i }));
 }
 
+/** keep only results whose value satisfies the predicate (map cannot drop) */
+export function filter<T>(p: Parser<T>, keep: (v: T) => boolean): Parser<T> {
+  return (s, i, ex) => p(s, i, ex).filter((r) => keep(r.v));
+}
+
 /** lazy reference for recursive grammars */
 export function lazy<T>(get: () => Parser<T>): Parser<T> {
   return (s, i, ex) => get()(s, i, ex);
