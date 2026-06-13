@@ -3,7 +3,8 @@
   "version": "0.0.0",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./suggest": "./src/suggest.ts"
   },
   "files": ["dist"],
   "publishConfig": {
@@ -12,6 +13,10 @@
       ".": {
         "types": "./dist/index.d.ts",
         "import": "./dist/index.js"
+      },
+      "./suggest": {
+        "types": "./dist/suggest.d.ts",
+        "import": "./dist/suggest.js"
       }
     }
   },
