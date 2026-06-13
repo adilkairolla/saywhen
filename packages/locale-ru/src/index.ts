@@ -4,7 +4,7 @@ import type {
 import {
   BOUNDARIES, CARDINALS, CONNECTORS, DIRECTIONS, FILLERS, KEYBOARD_ROWS,
   MERIDIEMS, MONTH_ABBR, MONTHS_GEN, MONTHS_NOM, MONTHS_PREP, ORDINALS,
-  ORD_QUARTER, PERIOD_NOUNS, QUARTER_FORMS, RELDAYS, REL_ACC, REL_FORMS,
+  ORD_QUARTER, PERIOD_NOUNS, QUARTER_FORMS, RANGE_OPENERS, RELDAYS, REL_ACC, REL_FORMS,
   REL_GEN, REL_INS, REL_NOM, SEASONS, TENS, TYPO_MAP, UNIT_COUNT, UNIT_FORMS,
   WEEKDAYS, WEEKEND_FORMS,
 } from "./data.js";
@@ -49,6 +49,7 @@ function buildLexicon(): Lexicon {
 
   for (const [dir, forms] of DIRECTIONS) add(forms, { kind: "DIRECTION", dir });
   add(CONNECTORS, { kind: "CONNECTOR" });
+  add(RANGE_OPENERS, { kind: "RANGE_OPEN" }); // "с … по …", "между … и …"
   add(["-"], { kind: "CONNECTOR" }); // "пн - пт" — lattice carries both OP and CONNECTOR readings
   add(["+", "плюс"], { kind: "OP", op: 1 });
   add(["-", "минус"], { kind: "OP", op: -1 });

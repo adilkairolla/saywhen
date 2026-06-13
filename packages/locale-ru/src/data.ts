@@ -147,7 +147,10 @@ export const DIRECTIONS: Array<["before" | "after" | "from" | "ago" | "in", stri
   ["from", ["от"]],
 ];
 
-export const CONNECTORS = ["по", "до"];
+export const CONNECTORS = ["по", "до", "и"];
+
+// range openers — "с … по …", "между … и …" (prepositional, lead the range)
+export const RANGE_OPENERS = ["с", "со", "между"];
 
 export const MERIDIEMS: Array<["am" | "pm", string[]]> = [
   ["am", ["утра", "ночи"]],

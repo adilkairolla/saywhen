@@ -109,3 +109,19 @@ describe("bare-unit offsets (plan 04 closes the plan-03 gap)", () => {
     expect(top(text).start.date).toBe(date);
   });
 });
+
+describe("range UX (plan 09B)", () => {
+  const rng = (text: string) => {
+    const c = top(text);
+    return { start: c.start.date, end: c.end.date };
+  };
+  test("с … по … with front-elision: 'с 1 по 15 марта'", () => {
+    expect(rng("с 1 по 15 марта")).toEqual({ start: "2026-03-01", end: "2026-03-15" });
+  });
+  test("между … и …: 'между 1 марта и 15 марта'", () => {
+    expect(rng("между 1 марта и 15 марта")).toEqual({ start: "2026-03-01", end: "2026-03-15" });
+  });
+  test("bare range prefers the current year: '1 марта по 15 марта'", () => {
+    expect(rng("1 марта по 15 марта")).toEqual({ start: "2026-03-01", end: "2026-03-15" });
+  });
+});

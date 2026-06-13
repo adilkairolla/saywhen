@@ -48,4 +48,11 @@ describe("suggest e2e (ru)", () => {
     expect(r.suggestions[0]!.text).toBe("2 недели после дня победы");
     expect(r.suggestions[0]!.start.date).toBe("2027-05-23");
   });
+
+  // opener + a month-bearing first operand makes the range valid-in-progress, so the 2nd
+  // operand completes (mirrors the en 'from feb 24 to ' case). A month-less prefix like
+  // 'с 1 по ' correctly yields nothing — the month-gate needs a month on some endpoint.
+  test("opener un-blanks typeahead: 'с 1 марта по ' completes", () => {
+    expect(sug.suggest("с 1 марта по ", CTX).suggestions.length).toBeGreaterThan(0);
+  });
 });
