@@ -78,3 +78,19 @@ describe("postpositional boundaries (kk locale rule)", () => {
     expect(top(text).start.date).toBe(date);
   });
 });
+
+describe("range UX (plan 09B)", () => {
+  const rng = (text: string) => {
+    const c = top(text);
+    return { start: c.start.date, end: c.end.date };
+  };
+  test("between (medial conjunction + trailing postposition): '1 қаңтар мен 15 қаңтар аралығы'", () => {
+    expect(rng("1 қаңтар мен 15 қаңтар аралығы")).toEqual({ start: "2026-01-01", end: "2026-01-15" });
+  });
+  test("front-elision: '1 мен 15 қаңтар'", () => {
+    expect(rng("1 мен 15 қаңтар")).toEqual({ start: "2026-01-01", end: "2026-01-15" });
+  });
+  test("Latin input still routes through the same rules: '1 men 15 qañtar'", () => {
+    expect(rng("1 men 15 qañtar")).toEqual({ start: "2026-01-01", end: "2026-01-15" });
+  });
+});

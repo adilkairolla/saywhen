@@ -91,7 +91,7 @@ export const DIRECTIONS: Array<["after" | "ago", string[]]> = [
   ["after", ["кейін", "соң"]],
   ["ago", ["бұрын"]],
 ];
-export const CONNECTORS = ["дейін", "шейін"];
+export const CONNECTORS = ["дейін", "шейін", "пен", "бен", "мен"];
 
 // басы (start) / соңы (end) trail their target → BOUNDARY. A kk LOCALE rule (kkBoundaryRule,
 // not a core rule) parses "<period> BOUNDARY" postpositionally ("осы ай соңы" = end of this
@@ -107,7 +107,7 @@ export const MERIDIEMS: Array<["am" | "pm", string[]]> = [
 ];
 
 /** сағат/жыл also map to UNIT — the FILLER reading lets "сағат 5", "2027 жылы" consume fully */
-export const FILLERS = ["сағат", "жыл", "жылы", "күні", "де", "да"];
+export const FILLERS = ["сағат", "жыл", "жылы", "күні", "де", "да", "арасы", "аралығы", "аралығында"];
 
 // ---------- numbers ----------
 export const TENS: Record<string, number> = {
