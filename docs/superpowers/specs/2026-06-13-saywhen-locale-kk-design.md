@@ -14,6 +14,8 @@ Two new packages that make saywhen understand Kazakh dates in **both scripts**:
 
 The main spec (§11) already scopes this: *"more locales (Kazakh next — agglutinative morphology stays 'enumerate inflections' since date vocab is finite)."* This spec settles the script question that line left open.
 
+**One core-grammar change is required** (see §2.1): Kazakh is *postpositional*, so its range connector (`дейін`) trails both endpoints (`X Y дейін`) rather than sitting between them (`X CONNECTOR Y`, as in en/ru). The core grammar gains **one locale-neutral postpositional-range rule** — the same precedent as plan 04's `inBareP` (the core gained a rule to serve a locale need). It is verified safe for en/ru (their medial connector means the rule never misfires). The Kazakh forward-offset (`кейін`) needs no core change — it is a `LocaleAdapter.rules` entry (a designed extension point). Suggest and controller are unchanged.
+
 ### Goals
 
 - Parse the full Kazakh date feature set already proven for `en`/`ru`: relative days, weekdays (± this/next/last), calendar dates, month names, ordinals, unit offsets, periods/seasons, boundaries, ranges, times.
@@ -51,6 +53,13 @@ They are **not** duplicated code. Both are thin wrappers over one shared data so
 - `kk.format` reads the Cyrillic tables. `kkLatn.format(expr, opts) = translit(kk.format(expr, opts))` — the Latin formatter is literally the Cyrillic formatter piped through the transliterator, so the two **cannot drift**, and every Latin string emitted is itself a lexicon entry (re-parseable). Same for `formatAccessible`.
 
 Rejected alternatives: parse-time Latin→Cyrillic transliteration (a generative parse-time transform, lossy across the 2017/2018/2021 Latin revisions, against §5); two fully-separate packages (duplicates data, no shared transliterator).
+
+### 2.1 Postpositional grammar (one core rule + one locale rule)
+
+Kazakh places its relational words *after* the phrase. Two consequences:
+
+- **Forward offset** — "екі аптадан кейін" (in two weeks) = `NUMBER UNIT кейін`. The core has prepositional `in` (`inP`: `DIRECTION NUMBER UNIT`) and postpositional `ago` (`agoP`: `NUMBER UNIT DIRECTION(ago)`), but no postpositional *forward* offset. This is supplied by a **`locale-kk` rule** (`LocaleAdapter.rules`, a designed extension point — **no core change**): match `NUMBER UNIT DIRECTION(after)` at the top level → `offset(now, n, unit, +1)`. It wins only when nothing follows `кейін` (otherwise the core's `relOffsetP` consumes the trailing base — "екі аптадан кейін X" = two weeks after X). `бұрын` (ago) maps to `DIRECTION ago` **and** `before`, so it reaches both the core `agoP` (bare, from now) and `relOffsetP` (with a base) with no rule. Because `LocaleRule.match` receives raw tokens and the core exports no combinators, the rule is a small hand-written `SemToken[]` walk (manual filler-skipping).
+- **Range** — "дүйсенбіден жұмаға дейін" (from Monday to Friday) = `X Y дейін`, connector trailing. The core's `rangeP` needs the connector *between* endpoints, and a locale rule cannot fix this (it cannot recursively re-parse the two endpoint expressions). So the **core grammar gains one rule**, `rangePostfixP` = `seq(exprP, exprP, tok("CONNECTOR")) → range`, added to `topP`. It is locale-neutral and **cannot misfire on en/ru**: their connector is medial, so after the first endpoint the second `exprP` would have to start on a `CONNECTOR` token and fails. Verified by an en/ru regression test plus a synthetic trailing-connector test. `дейін`/`шейін` → `CONNECTOR`; ablative/dative endpoint forms (дүйсенбіден, жұмаға) are plain WEEKDAY surface entries in the lexicon.
 
 ## 3. Package layout
 
@@ -163,10 +172,11 @@ Run from repo root; fixed conformance clock is Friday 2026-06-12, `America/New_Y
 
 - `@saywhen/locale-kk` exports `kk` and `kkLatn`; both pass the shared conformance harness unchanged and a 300-run round-trip property test; either script parses under either adapter; each emits its own script canonically and re-parseably.
 - `@saywhen/holidays-kk` resolves all fixed holidays and in-range Kurban Ait, returns explanatory invalids outside range, and works cross-language.
-- Full repo suite + typecheck + builds + dist smokes green; no change to core, suggest, or controller code.
+- Full repo suite + typecheck + builds + dist smokes green. The **only** core change is one locale-neutral `rangePostfixP` grammar rule (§2.1), covered by an en/ru regression test; suggest and controller code are unchanged.
 
 ## 10. Known limitations (deliberate)
 
+- **Boundaries deferred:** Kazakh boundaries (`ай соңы` = end of month) are *postpositional* (the boundary word trails), like ranges — so they would need a **second** locale-neutral core rule (`boundaryPostfixP`, the same shape as `rangePostfixP`). Only the range rule was approved for v1, so `басы`/`соңы` are a fast-follow; they are excluded from the round-trip arbitrary. This is the one §4.2 construction not in kk v1.
 - Latin output is the 2021 official alphabet only; earlier Latin variants (2017 apostrophe / 2018 acute) are not emitted (may be accepted as `typoMap`/alias input if cheap).
 - Kurban Ait is tabulated to declared dates over a bounded range, not sighting-computed.
 - Oracle stays English-only; no Kazakh chrono cross-check.
