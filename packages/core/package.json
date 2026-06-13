@@ -4,7 +4,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./suggest": "./src/suggest.ts"
+    "./suggest": "./src/suggest.ts",
+    "./controller": "./src/controller.ts"
   },
   "files": ["dist"],
   "publishConfig": {
@@ -17,6 +18,10 @@
       "./suggest": {
         "types": "./dist/suggest.d.ts",
         "import": "./dist/suggest.js"
+      },
+      "./controller": {
+        "types": "./dist/controller.d.ts",
+        "import": "./dist/controller.js"
       }
     }
   },
