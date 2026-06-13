@@ -1,0 +1,14 @@
+{
+  "name": "@saywhen/locale-kk",
+  "version": "0.0.0",
+  "type": "module",
+  "exports": { ".": "./src/index.ts" },
+  "files": ["dist"],
+  "publishConfig": {
+    "access": "public",
+    "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } }
+  },
+  "peerDependencies": { "@saywhen/core": "workspace:*" },
+  "devDependencies": { "@saywhen/conformance": "workspace:*", "@saywhen/core": "workspace:*" },
+  "scripts": { "build": "tsdown", "typecheck": "tsc --noEmit" }
+}
