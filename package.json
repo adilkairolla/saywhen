@@ -11,8 +11,14 @@
     "oracle": "ORACLE=1 vitest run tools/oracle/test/run-oracle.test.ts"
   },
   "devDependencies": {
+    "@testing-library/dom": "^10",
+    "@testing-library/react": "^16",
     "@types/node": "^22.15.0",
+    "@types/react-dom": "^18.3.0",
     "fast-check": "^4.8.0",
+    "jest-axe": "^9",
+    "jsdom": "^25",
+    "react-dom": "^18.3.0",
     "tsdown": "^0.22.2",
     "typescript": "^5.8.3",
     "unrun": "^0.3.1",
