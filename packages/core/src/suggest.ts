@@ -216,7 +216,66 @@ export function createSuggest(options: CreateEngineOptions): SuggestEngine {
         }
       }
 
-      // [Task 4 appends the fallback block here, inside this if]
+      // ---- fallbacks (spec §6) — only when completions ran dry ----
+      if (hits.length < 2) {
+        const addExpr = (expr: DateExpr, popularity: number) => {
+          const resolved = resolveOk(expr);
+          if (!resolved) return;
+          const t = locale.format(expr, fmtOpts);
+          if (t === input) return;
+          const ratio = t.startsWith(input) ? input.length / t.length : 0;
+          hits.push({ expr, text: t, ratio, popularity, bonus: 0, resolved });
+        };
+        // bare day-of-month → this occurrence + next month's
+        if (/^\d{1,2}$/.test(input)) {
+          const n = Number(input);
+          if (n >= 1 && n <= 31) {
+            addExpr({ type: "anchor", anchor: { kind: "calendar", d: n } }, 0.45);
+            addExpr({ type: "anchor", anchor: { kind: "calendar", m: (today.m + 1) % 12, d: n } }, 0.4);
+          }
+        }
+        // weekday prefix → this AND next weekday; month prefix → "Month 1"
+        if (/^[^\s\d]{2,}$/.test(input)) {
+          for (const s of surfaces.matchable) {
+            if (!s.text.startsWith(input)) continue;
+            if (s.payload.kind === "WEEKDAY") {
+              addExpr({ type: "anchor", anchor: { kind: "weekday", day: s.payload.day } }, 0.45);
+              addExpr(
+                { type: "anchor", anchor: { kind: "weekday", day: s.payload.day, which: "next" } },
+                0.45,
+              );
+            } else if (s.payload.kind === "MONTH") {
+              addExpr({ type: "anchor", anchor: { kind: "calendar", m: s.payload.month, d: 1 } }, 0.4);
+            }
+          }
+        }
+        // time-like input → today/tomorrow at that time
+        let time: { h: number; m: number } | null = null;
+        const hm = /^(\d{1,2}):(\d{2})$/.exec(input);
+        const first = tokens[0];
+        const second = tokens[1];
+        if (hm) {
+          time = { h: Number(hm[1]), m: Number(hm[2]) };
+        } else if (tokens.length === 1 && first) {
+          const p = (vocab.lexicon[first.text] ?? []).find((pl) => pl.kind === "TIME");
+          if (p && p.kind === "TIME") time = { h: p.h, m: p.m };
+        } else if (tokens.length === 2 && first && second && /^\d{1,2}$/.test(first.text)) {
+          const mer = (vocab.lexicon[second.text] ?? []).find((pl) => pl.kind === "MERIDIEM");
+          const h = Number(first.text);
+          if (mer && mer.kind === "MERIDIEM" && h >= 1 && h <= 12) {
+            time = mer.value === "pm"
+              ? { h: h === 12 ? 12 : h + 12, m: 0 }
+              : { h: h === 12 ? 0 : h, m: 0 };
+          }
+        }
+        if (time !== null && time.h <= 23 && time.m <= 59) {
+          const t = time;
+          const at = (offset: number): DateExpr =>
+            ({ type: "withTime", base: { type: "anchor", anchor: { kind: "relday", offset } }, time: t });
+          addExpr(at(0), 0.45);
+          addExpr(at(1), 0.45);
+        }
+      }
     }
 
     // ---- score, dedupe, rank ----

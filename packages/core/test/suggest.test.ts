@@ -110,3 +110,31 @@ describe("range-building mode after a CONNECTOR (spec §6)", () => {
     expect(r.suggestions[0]!.text).toBe("tomorrow to weekend");
   });
 });
+
+describe("fallbacks when completions run dry (spec §6)", () => {
+  test("bare day number: '15' → the 15th and next month's 15th", () => {
+    const r = sug.suggest("15", CTX);
+    expect(texts(r)).toContain("the 15th");
+    expect(texts(r)).toContain("july 15");
+    expect(r.suggestions.find((s) => s.text === "the 15th")!.start.date).toBe("2026-06-15");
+    expect(r.suggestions.find((s) => s.text === "july 15")!.start.date).toBe("2026-07-15");
+  });
+
+  test("weekday prefix: 'fri' → friday and next friday", () => {
+    const r = sug.suggest("fri", CTX);
+    expect(texts(r)).toContain("friday");
+    expect(texts(r)).toContain("next friday");
+  });
+
+  test("month prefix: 'ja' → january and january 1", () => {
+    const r = sug.suggest("ja", CTX);
+    expect(texts(r)).toContain("january");
+    expect(texts(r)).toContain("january 1");
+  });
+
+  test("time-like: '5pm' → today/tomorrow at 5pm", () => {
+    const r = sug.suggest("5pm", CTX);
+    expect(texts(r)).toEqual(expect.arrayContaining(["today at 5pm", "tomorrow at 5pm"]));
+    expect(r.suggestions.find((s) => s.text === "today at 5pm")!.start.date).toBe("2026-06-12");
+  });
+});
