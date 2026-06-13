@@ -1,10 +1,11 @@
 import type {
-  Candidate, Correction, Engine, HolidayPack, Lexicon, LocaleAdapter,
+  Candidate, Correction, Engine, HolidayPack, LocaleAdapter,
   ParseContext, ParseResult,
 } from "./types.js";
 import { normalizeText } from "./normalize.js";
 import { validateLocale } from "./lexicon.js";
-import { buildLattice, expandStreams, type PhraseEntry } from "./lattice.js";
+import { buildLattice, expandStreams } from "./lattice.js";
+import { buildVocabulary } from "./vocab.js";
 import { buildGrammar } from "./grammar.js";
 import { buildKeyboardAdjacency, correctToken } from "./typo.js";
 import { resolveExpr } from "./resolve.js";
@@ -22,33 +23,7 @@ export function createEngine(options: CreateEngineOptions): Engine {
   const { locale, holidays = [] } = options;
   validateLocale(locale);
 
-  // merge holiday vocabulary for THIS locale (spec §4.5): single-word aliases become
-  // lexicon entries (and get typo correction for free); multi-word aliases become
-  // phrase entries merged in the lattice. Tokenize aliases with the locale tokenizer
-  // so phrase tokens match user input exactly ("new year's day" → ["new","year's","day"]).
-  const lexicon: Lexicon = { ...locale.lexicon };
-  const phrases: PhraseEntry[] = [];
-  const holidayNames: Record<string, string> = {};
-  const holidayComputes = new Map<string, (y: number) => { m: number; d: number } | null>();
-  for (const pack of holidays) {
-    if (!pack.id || !Array.isArray(pack.entries)) {
-      throw new Error(`Malformed holiday pack: expected { id, entries[] }.`);
-    }
-    for (const entry of pack.entries) {
-      holidayComputes.set(entry.id, entry.compute);
-      for (const alias of entry.names[locale.id] ?? []) {
-        const words = locale.tokenize(normalizeText(alias)).map((t) => t.text);
-        if (words.length === 1) {
-          const form = words[0]!;
-          lexicon[form] = [...(lexicon[form] ?? []), { kind: "HOLIDAY", id: entry.id }];
-        } else if (words.length > 1) {
-          phrases.push({ tokens: words, payload: { kind: "HOLIDAY", id: entry.id } });
-        }
-      }
-      const canonical = (entry.names[locale.id] ?? [])[0];
-      if (canonical !== undefined) holidayNames[entry.id] = normalizeText(canonical);
-    }
-  }
+  const { lexicon, phrases, holidayNames, holidayComputes } = buildVocabulary(locale, holidays);
 
   const grammar = buildGrammar(locale.rules ?? []);
   const adjacency = locale.keyboard ? buildKeyboardAdjacency(locale.keyboard) : null;
