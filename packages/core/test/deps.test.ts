@@ -13,7 +13,7 @@ describe("dependency rules (spec §3)", () => {
     expect(core.peerDependencies).toBeUndefined();
   });
 
-  test.each(["locale-en", "locale-ru", "locale-kk", "holidays-us", "holidays-ru"])(
+  test.each(["locale-en", "locale-ru", "locale-kk", "holidays-us", "holidays-ru", "holidays-kk"])(
     "%s depends on core as a peer only",
     (name) => {
       const p = pkg(`packages/${name}`);
