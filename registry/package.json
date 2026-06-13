@@ -1,0 +1,21 @@
+{
+  "name": "@saywhen/registry",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./date-input": "./components/date-input.tsx",
+    "./date-range-input": "./components/date-range-input.tsx",
+    "./calendar-grid": "./components/calendar-grid.tsx",
+    "./time-field": "./components/time-field.tsx"
+  },
+  "peerDependencies": { "@saywhen/core": "workspace:*", "@saywhen/react": "workspace:*", "react": "^18.3.0 || ^19.0.0" },
+  "devDependencies": {
+    "@saywhen/core": "workspace:*",
+    "@saywhen/locale-en": "workspace:*",
+    "@saywhen/react": "workspace:*",
+    "@types/react": "^18.3.0",
+    "react": "^18.3.0"
+  },
+  "scripts": { "typecheck": "tsc --noEmit" }
+}

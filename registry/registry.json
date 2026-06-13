@@ -1,0 +1,39 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry.json",
+  "name": "saywhen",
+  "homepage": "https://github.com/saywhen/saywhen",
+  "items": [
+    {
+      "name": "date-input",
+      "type": "registry:component",
+      "title": "Date Input",
+      "description": "Natural-language date input with ghost completion and a suggestion popover.",
+      "dependencies": ["@saywhen/react", "@saywhen/core"],
+      "files": [{ "path": "components/date-input.tsx", "type": "registry:component" }]
+    },
+    {
+      "name": "date-range-input",
+      "type": "registry:component",
+      "title": "Date Range Input",
+      "description": "Range-oriented preset of the date input.",
+      "registryDependencies": ["date-input"],
+      "files": [{ "path": "components/date-range-input.tsx", "type": "registry:component" }]
+    },
+    {
+      "name": "calendar-grid",
+      "type": "registry:component",
+      "title": "Calendar Grid",
+      "description": "Month grid built on getMonthGrid; pure presentational day buttons.",
+      "dependencies": ["@saywhen/core"],
+      "files": [{ "path": "components/calendar-grid.tsx", "type": "registry:component" }]
+    },
+    {
+      "name": "time-field",
+      "type": "registry:component",
+      "title": "Time Field",
+      "description": "Hour/minute stepper built on clampTime.",
+      "dependencies": ["@saywhen/core"],
+      "files": [{ "path": "components/time-field.tsx", "type": "registry:component" }]
+    }
+  ]
+}

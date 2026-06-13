@@ -113,6 +113,24 @@ importers:
         specifier: ^18.3.0
         version: 18.3.1
 
+  registry:
+    devDependencies:
+      '@saywhen/core':
+        specifier: workspace:*
+        version: link:../packages/core
+      '@saywhen/locale-en':
+        specifier: workspace:*
+        version: link:../packages/locale-en
+      '@saywhen/react':
+        specifier: workspace:*
+        version: link:../packages/react
+      '@types/react':
+        specifier: ^18.3.0
+        version: 18.3.31
+      react:
+        specifier: ^18.3.0
+        version: 18.3.1
+
   tools/oracle:
     devDependencies:
       '@saywhen/core':
