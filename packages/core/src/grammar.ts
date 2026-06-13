@@ -185,6 +185,28 @@ export function buildGrammar(localeRules: LocaleRule[] = []): Grammar {
     ([, a, , b]) => buildRange(a, b),
   );
 
+  // a bare cardinal day 1–31 as a range endpoint (ordinals like "the 21st" already parse via exprP)
+  const bareDayP: P = map(
+    tok("NUMBER", (n) => !n.ordinal && n.n >= 1 && n.n <= 31),
+    (n) => A(anchor({ kind: "calendar", d: n.n }), 0.3),
+  );
+  const rangeEndpoint: P = alt(exprP, bareDayP);
+
+  const endpointMonth = (e: DateExpr): boolean =>
+    e.type === "anchor" && e.anchor.kind === "calendar" && e.anchor.m !== undefined;
+  const rangeHasMonth = (e: DateExpr): boolean =>
+    e.type === "range" && (endpointMonth(e.start) || endpointMonth(e.end));
+
+  // elided range: admits a bare-day endpoint, but only when SOME endpoint carries an explicit
+  // month — so "3 to 5" (no month) yields no candidate. The all-exprP overlap with rangeP dedupes.
+  const elidedRangeP: P = filter(
+    map(
+      seq(opt(tok("RANGE_OPEN")), rangeEndpoint, tok("CONNECTOR"), rangeEndpoint),
+      ([, a, , b]) => buildRange(a, b),
+    ),
+    (r) => rangeHasMonth(r.expr),
+  );
+
   // postpositional range: "X Y CONNECTOR" — the connector trails both endpoints
   // (Kazakh "дүйсенбіден жұмаға дейін"). Locale-neutral and safe for medial-connector
   // locales: after the first exprP the second would have to start on a CONNECTOR token,
@@ -193,7 +215,7 @@ export function buildGrammar(localeRules: LocaleRule[] = []): Grammar {
     A({ type: "range", start: a.expr, end: b.expr }, a.specificity * b.specificity),
   );
 
-  const topP: P = alt(rangeP, rangePostfixP, exprP, ...exprRules);
+  const topP: P = alt(rangeP, rangePostfixP, elidedRangeP, exprP, ...exprRules);
 
   function parseStream(stream: SemToken[]): StreamResult {
     const expectations = newExpectations();

@@ -48,3 +48,37 @@ describe("prepositional opener (opt RANGE_OPEN on rangeP)", () => {
     expect(parses).toHaveLength(1);
   });
 });
+
+describe("month elision (bare-day endpoint, gated on an explicit month)", () => {
+  // "march 1 to 15": MONTH NUMBER CONNECTOR NUMBER  (march=2, 0-indexed)
+  test("back-elision: end bare day inherits nothing at parse time (month copied in resolve)", () => {
+    const r = rangeOf([
+      t({ kind: "MONTH", month: 2 }), t({ kind: "NUMBER", n: 1 }),
+      t({ kind: "CONNECTOR" }), t({ kind: "NUMBER", n: 15 }),
+    ]);
+    expect(r).toMatchObject({
+      type: "range",
+      start: { anchor: { kind: "calendar", m: 2, d: 1 } },
+      end: { anchor: { kind: "calendar", d: 15 } },
+    });
+  });
+
+  // "1 to 15 march": NUMBER CONNECTOR NUMBER MONTH
+  test("front-elision: start is a bare day, end carries the month", () => {
+    const r = rangeOf([
+      t({ kind: "NUMBER", n: 1 }), t({ kind: "CONNECTOR" }),
+      t({ kind: "NUMBER", n: 15 }), t({ kind: "MONTH", month: 2 }),
+    ]);
+    expect(r).toMatchObject({
+      type: "range",
+      start: { anchor: { kind: "calendar", d: 1 } },
+      end: { anchor: { kind: "calendar", m: 2, d: 15 } },
+    });
+  });
+
+  test("'3 to 5' (no month anywhere) yields no range", () => {
+    expect(rangeOf([
+      t({ kind: "NUMBER", n: 3 }), t({ kind: "CONNECTOR" }), t({ kind: "NUMBER", n: 5 }),
+    ])).toBeUndefined();
+  });
+});
