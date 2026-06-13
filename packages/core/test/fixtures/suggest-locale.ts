@@ -68,9 +68,12 @@ const lexicon: Lexicon = {
   an: [{ kind: "FILLER" }],
 };
 
+const capFirst = (s: string) => (s === "" ? s : s.charAt(0).toUpperCase() + s.slice(1));
+
 /** testLocale with a REAL formatter — suggest renders entries via locale.format */
 export const suggestLocale: LocaleAdapter = {
   ...testLocale,
   lexicon,
   format: (expr: DateExpr, opts: FormatOptions) => fmt(expr, opts.holidayNames ?? {}),
+  formatAccessible: (expr: DateExpr, opts: FormatOptions) => capFirst(fmt(expr, opts.holidayNames ?? {})),
 };

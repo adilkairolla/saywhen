@@ -1,5 +1,5 @@
 import type {
-  Candidate, Correction, Engine, HolidayPack, LocaleAdapter,
+  Candidate, Correction, DateExpr, Engine, HolidayPack, LocaleAdapter,
   ParseContext, ParseResult,
 } from "./types.js";
 import { normalizeText } from "./normalize.js";
@@ -88,7 +88,11 @@ export function createEngine(options: CreateEngineOptions): Engine {
     return { status, candidates, corrections, errors };
   }
 
-  return { locale, parse };
+  function formatAccessible(expr: DateExpr, fctx: { now: Date; timeZone: string }): string {
+    return locale.formatAccessible(expr, { now: fctx.now, timeZone: fctx.timeZone, holidayNames });
+  }
+
+  return { locale, parse, formatAccessible };
 }
 
 function pad(n: number): string {

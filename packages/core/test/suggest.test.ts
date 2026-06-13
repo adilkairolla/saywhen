@@ -138,3 +138,11 @@ describe("fallbacks when completions run dry (spec §6)", () => {
     expect(r.suggestions.find((s) => s.text === "today at 5pm")!.start.date).toBe("2026-06-12");
   });
 });
+
+describe("rangeMode flag (spec §6 — drives the controller's RANGE_BUILDING phase)", () => {
+  test("true after a connector, false otherwise", () => {
+    expect(sug.suggest("tomorrow to", CTX).rangeMode).toBe(true);
+    expect(sug.suggest("tomorrow", CTX).rangeMode).toBe(false);
+    expect(sug.suggest("", CTX).rangeMode).toBe(false);
+  });
+});

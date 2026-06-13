@@ -154,4 +154,6 @@ export interface ParseResult {
 export interface Engine {
   locale: LocaleAdapter;
   parse(text: string, ctx: ParseContext): ParseResult;
+  /** screen-reader phrasing for an expr, with the engine's holiday names injected (spec §7.1) */
+  formatAccessible(expr: DateExpr, ctx: { now: Date; timeZone: string }): string;
 }

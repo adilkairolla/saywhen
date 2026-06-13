@@ -29,6 +29,8 @@ export interface SuggestResult {
   suggestions: Suggestion[];
   /** remaining characters of the top suggestion when it extends the typed input */
   ghost: string | null;
+  /** true when the input is mid-range (a CONNECTOR was consumed) — spec §6 range-building */
+  rangeMode: boolean;
 }
 
 export interface SuggestEngine {
@@ -136,6 +138,7 @@ export function createSuggest(options: CreateEngineOptions): SuggestEngine {
       }
     }
 
+    let anyRange = false;
     if (input !== "") {
       // ---- grammar continuations: parse the head, complete at the expectation frontier ----
       const tokens = locale.tokenize(input);
@@ -188,6 +191,7 @@ export function createSuggest(options: CreateEngineOptions): SuggestEngine {
           const lastSem = [...stream].reverse().find((tk: SemToken) => tk.kind !== "FILLER");
           if (lastSem?.kind === "CONNECTOR") rangeMode = true;
         }
+        if (rangeMode) anyRange = true;
         if (kinds.size === 0) continue;
         const isEndKind = (kind: SemKind) => !rangeMode || RANGE_END_KINDS.has(kind);
         const endBonus = (kind: SemKind) =>
@@ -313,7 +317,7 @@ export function createSuggest(options: CreateEngineOptions): SuggestEngine {
       top !== undefined && input !== "" && top.text.startsWith(input) && top.text !== input
         ? top.text.slice(input.length)
         : null;
-    return { suggestions, ghost };
+    return { suggestions, ghost, rangeMode: anyRange };
   }
 
   return { suggest };

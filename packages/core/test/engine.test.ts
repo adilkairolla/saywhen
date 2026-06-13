@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { createEngine } from "../src/engine.js";
 import { testLocale } from "./fixtures/test-locale.js";
+import { suggestLocale } from "./fixtures/suggest-locale.js";
 import type { HolidayPack, ParseContext } from "../src/types.js";
 
 const engine = createEngine({ locale: testLocale });
@@ -148,5 +149,24 @@ describe("multi-word holiday names (phrase merge)", () => {
     const range = eng.parse("tomorrow to new year", CTX);
     expect(range.candidates[0]!.start.date).toBe("2026-06-13");
     expect(range.candidates[0]!.end.date).toBe("2027-01-01");
+  });
+});
+
+describe("engine.formatAccessible (spec §7.1 — injects holiday names)", () => {
+  const pack: HolidayPack = {
+    id: "p",
+    entries: [{ id: "christmas", compute: () => ({ m: 11, d: 25 }), names: { test: ["christmas"] } }],
+  };
+  const engine = createEngine({ locale: suggestLocale, holidays: [pack] });
+  const ctx = { now: new Date("2026-06-12T08:00:00Z"), timeZone: "Asia/Almaty" };
+
+  test("renders an expr with the accessible formatter", () => {
+    expect(engine.formatAccessible({ type: "anchor", anchor: { kind: "relday", offset: 1 } }, ctx))
+      .toBe("Tomorrow");
+  });
+
+  test("threads the engine's holiday names", () => {
+    expect(engine.formatAccessible({ type: "anchor", anchor: { kind: "holiday", id: "christmas" } }, ctx))
+      .toBe("Christmas");
   });
 });
