@@ -7,7 +7,7 @@
     "test": "vitest run",
     "build": "pnpm -r --filter './packages/*' run build",
     "bench": "vitest bench --run",
-    "typecheck": "pnpm -r --filter './packages/*' --filter './tools/*' exec tsc --noEmit",
+    "typecheck": "pnpm -r --filter './packages/*' --filter './tools/*' --filter './apps/*' --filter './registry' exec tsc --noEmit",
     "oracle": "ORACLE=1 vitest run tools/oracle/test/run-oracle.test.ts"
   },
   "devDependencies": {
