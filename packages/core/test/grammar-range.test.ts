@@ -27,3 +27,24 @@ describe("rangePostfixP — postpositional range (connector trails)", () => {
     expect(rangeOf([t({ kind: "WEEKDAY", day: 1 }), t({ kind: "WEEKDAY", day: 5 })])).toBeUndefined();
   });
 });
+
+describe("prepositional opener (opt RANGE_OPEN on rangeP)", () => {
+  test("RANGE_OPEN WEEKDAY CONNECTOR WEEKDAY → range", () => {
+    const r = rangeOf([
+      t({ kind: "RANGE_OPEN" }), t({ kind: "WEEKDAY", day: 1 }),
+      t({ kind: "CONNECTOR" }), t({ kind: "WEEKDAY", day: 5 }),
+    ]);
+    expect(r).toMatchObject({
+      type: "range",
+      start: { anchor: { kind: "weekday", day: 1 } },
+      end: { anchor: { kind: "weekday", day: 5 } },
+    });
+  });
+
+  test("no opener still parses exactly one range (no duplicate)", () => {
+    const parses = g.parseStream([
+      t({ kind: "WEEKDAY", day: 1 }), t({ kind: "CONNECTOR" }), t({ kind: "WEEKDAY", day: 5 }),
+    ]).parses.filter((p) => p.expr.type === "range");
+    expect(parses).toHaveLength(1);
+  });
+});

@@ -1,5 +1,5 @@
 import {
-  alt, lazy, many, map, newExpectations, opt, seq, skipFiller, tok,
+  alt, filter, lazy, many, map, newExpectations, opt, seq, skipFiller, tok,
   type Expectations, type Parser,
 } from "./combinators.js";
 import type { Anchor, DateExpr, LocaleRule, PeriodRef, SemToken } from "./types.js";
@@ -173,9 +173,16 @@ export function buildGrammar(localeRules: LocaleRule[] = []): Grammar {
     time ? A({ type: "withTime", base: base.expr, time }, base.specificity) : base,
   );
 
-  // explicit range
-  const rangeP: P = map(seq(exprP, tok("CONNECTOR"), exprP), ([a, , b]) =>
-    A({ type: "range", start: a.expr, end: b.expr }, a.specificity * b.specificity),
+  const buildRange = (a: GrammarParse, b: GrammarParse): GrammarParse =>
+    A({ type: "range", start: a.expr, end: b.expr }, a.specificity * b.specificity);
+
+  // explicit range, optionally introduced by a leading opener (from / between / с / между).
+  // opt consumes the opener when present; with no opener the empty branch reproduces the
+  // prior behaviour, and a present opener cannot also match the empty branch because the
+  // following exprP rejects a RANGE_OPEN token — so no duplicate parse.
+  const rangeP: P = map(
+    seq(opt(tok("RANGE_OPEN")), exprP, tok("CONNECTOR"), exprP),
+    ([, a, , b]) => buildRange(a, b),
   );
 
   // postpositional range: "X Y CONNECTOR" — the connector trails both endpoints
