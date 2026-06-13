@@ -99,3 +99,80 @@ describe("controller — input, phase, value", () => {
     expect(c.getState().phase).toBe("PARSED");
   });
 });
+
+describe("controller — navigation, commit, ambiguity, keymap", () => {
+  test("cycleSuggestion wraps and Tab accepts the ghost", () => {
+    const c = make();
+    c.setInput("next w"); // "next week", "next weekend", "next wednesday", ...
+    expect(c.getState().activeSuggestionIndex).toBe(0);
+    c.cycleSuggestion(1);
+    expect(c.getState().activeSuggestionIndex).toBe(1);
+    c.cycleSuggestion(-1);
+    expect(c.getState().activeSuggestionIndex).toBe(0);
+    expect(c.keymap("Tab")).toBe(true);
+    expect(c.getState().rawInput).toBe("next week"); // ghost accepted
+  });
+
+  test("acceptSuggestion fills the input and re-parses", () => {
+    const c = make();
+    c.setInput("tom");
+    c.acceptSuggestion(); // active = tomorrow
+    expect(c.getState().rawInput).toBe("tomorrow");
+    expect(c.getState().phase).toBe("PARSED");
+  });
+
+  test("Enter commits a parsed date and fires onCommit once", () => {
+    const onCommit = vi.fn();
+    const c = make({ onCommit });
+    c.setInput("tomorrow");
+    expect(c.keymap("Enter")).toBe(true);
+    expect(c.getState().phase).toBe("RESOLVED");
+    expect(onCommit).toHaveBeenCalledWith("2026-06-13", expect.objectContaining({ text: "tomorrow" }));
+  });
+
+  test("announcement uses formatAccessible (capitalized), not format", () => {
+    const c = make();
+    c.setInput("tomorrow");
+    expect(c.getState().announcement).toBe("Tomorrow. Press Enter to select.");
+    c.commit();
+    expect(c.getState().announcement).toBe("Selected Tomorrow.");
+  });
+
+  test("resolveAmbiguity picks a candidate and commits it", () => {
+    const c = make();
+    c.setInput("3/4"); // MDY default → Mar 4; alt Apr 3
+    const st = c.getState();
+    expect(st.candidates.length).toBeGreaterThan(1);
+    c.resolveAmbiguity(1);
+    expect(c.getState().phase).toBe("RESOLVED");
+    expect(c.getState().value).toBe(c.getState().candidates[1]!.start.date);
+  });
+
+  test("Escape closes the list, then clears", () => {
+    const c = make();
+    c.setInput("tom");
+    expect(c.getState().isOpen).toBe(true);
+    expect(c.keymap("Escape")).toBe(true); // closes list
+    expect(c.getState().isOpen).toBe(false);
+    c.commit();                            // value set... but "tom" has no candidate, so:
+    c.setInput("tomorrow");
+    c.commit();
+    expect(c.keymap("Escape")).toBe(true); // value set → clears
+    expect(c.getState().value).toBe("");
+  });
+
+  test("keymap returns false when it has nothing to do", () => {
+    const c = make();
+    expect(c.keymap("ArrowDown")).toBe(false); // no suggestions
+    expect(c.keymap("Enter")).toBe(false);     // nothing parsed
+    expect(c.keymap("Escape")).toBe(false);    // nothing open, no value
+  });
+
+  test("setContext re-parses with the new flags", () => {
+    const c = make();
+    c.setInput("tomorrow");
+    c.setContext({ enableTime: true });
+    c.commit();
+    expect(c.getState().value).toMatch(/T\d{2}:\d{2}:\d{2}/); // now an instant
+  });
+});

@@ -223,25 +223,86 @@ export function createDateInputController(options: ControllerOptions): DateInput
     options.onCommit?.(value, c);
   }
   function acceptSuggestion(index?: number): void {
-    // Task 4
-    void index;
+    const i = index ?? (activeSuggestionIndex >= 0 ? activeSuggestionIndex : 0);
+    const s = suggestions[i];
+    if (!s) return;
+    setInput(s.text);
   }
+
   function cycleSuggestion(delta: 1 | -1): void {
-    // Task 4
-    void delta;
+    if (suggestions.length === 0) return;
+    isOpen = true;
+    const base = activeSuggestionIndex < 0 ? (delta === 1 ? -1 : 0) : activeSuggestionIndex;
+    activeSuggestionIndex = (base + delta + suggestions.length) % suggestions.length;
+    notify();
   }
+
   function resolveAmbiguity(candidateIndex: number): void {
-    // Task 4
-    void candidateIndex;
+    const c = candidates[candidateIndex];
+    if (!c) return;
+    chosenIndex = candidateIndex;
+    value = wireValue(c, enableTime);
+    rawInput = c.text;
+    committedCandidate = c;
+    committed = true;
+    isOpen = false;
+    activeSuggestionIndex = -1;
+    notify();
+    options.onCommit?.(value, c);
   }
+
   function setContext(patch: ControllerContextPatch): void {
-    // Task 4
-    void patch;
+    if (patch.timeZone !== undefined) timeZone = patch.timeZone;
+    if (patch.now !== undefined) nowFn = patch.now;
+    if (patch.weekStart !== undefined) weekStart = patch.weekStart;
+    if (patch.dateOrder !== undefined) dateOrder = patch.dateOrder;
+    if (patch.allowPast !== undefined) allowPast = patch.allowPast;
+    if (patch.enableTime !== undefined) enableTime = patch.enableTime;
+    committed = false;
+    committedCandidate = null;
+    runParse();
+    notify();
   }
+
   function keymap(key: KeyName): boolean {
-    // Task 4
-    void key;
-    return false;
+    switch (key) {
+      case "ArrowDown":
+        if (suggestions.length === 0) return false;
+        cycleSuggestion(1);
+        return true;
+      case "ArrowUp":
+        if (suggestions.length === 0) return false;
+        cycleSuggestion(-1);
+        return true;
+      case "Tab":
+        if (ghostNow() === "") return false;
+        acceptSuggestion();
+        return true;
+      case "Enter":
+        if (committed) return false;
+        if (candidates.length > 0) {
+          commit();
+          return true;
+        }
+        if (suggestions.length > 0) {
+          acceptSuggestion();
+          return true;
+        }
+        return false;
+      case "Escape":
+        if (isOpen) {
+          isOpen = false;
+          notify();
+          return true;
+        }
+        if (value !== "") {
+          clear();
+          return true;
+        }
+        return false;
+      default:
+        return false;
+    }
   }
 
   return {
