@@ -6,8 +6,9 @@ const fixed = (m: number, d: number) => () => ({ m, d });
  * Kurban Ait (Eid al-Adha, 10 Dhu al-Hijjah) as officially observed in Kazakhstan.
  * Lunar — the Gregorian date is set by sighting/decree, so it is tabulated rather than
  * computed (spec §6). Bounded; returns null outside the table → the engine drops the
- * candidate with an explanatory error (spec §4.5 / §8). Extend the table as new years are
- * declared, and VERIFY each entry against the official Kazakhstan holiday calendar (±1 day).
+ * candidate with an explanatory error (spec §4.5 / §8). Verified against the calculated
+ * Eid al-Adha (10 Dhu al-Hijjah) dates for 2023–2030, ±1 day vs official sighting/decree;
+ * extend the table as new years are declared.
  */
 export function kurbanAit(year: number): { m: number; d: number } | null {
   const TABLE: Record<number, [number, number]> = {
