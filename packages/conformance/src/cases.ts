@@ -63,4 +63,12 @@ export const SEMANTIC_CASES: SemanticCase[] = [
     name: "with time of day",
     expr: { type: "withTime", base: A({ kind: "weekday", day: 5 }), time: { h: 17, m: 0 } },
   },
+  {
+    name: "calendar↔calendar range",
+    expr: { type: "range", start: A({ kind: "calendar", m: 1, d: 24 }), end: A({ kind: "calendar", m: 5, d: 30 }) },
+  },
+  {
+    name: "month-elided range (day-only end)",
+    expr: { type: "range", start: A({ kind: "calendar", m: 2, d: 1 }), end: A({ kind: "calendar", d: 15 }) },
+  },
 ];
