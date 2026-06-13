@@ -70,3 +70,43 @@ describe("config errors throw (spec §8)", () => {
     expect(() => sug.suggest("tom", { ...CTX, timeZone: "Nope/Nope" })).toThrow(/Invalid IANA/);
   });
 });
+
+describe("grammar continuations (expectation frontier → concrete completions)", () => {
+  test("'2 days before chr' completes the holiday and keeps the typed shape", () => {
+    const r = sug.suggest("2 days before chr", CTX);
+    expect(r.suggestions[0]!.text).toBe("2 days before christmas");
+    expect(r.suggestions[0]!.start.date).toBe("2026-12-23");
+    expect(r.ghost).toBe("istmas");
+  });
+
+  test("multi-word phrase completion across the fragment boundary", () => {
+    const r = sug.suggest("tomorrow to new ye", CTX);
+    expect(r.suggestions[0]!.text).toBe("tomorrow to new year"); // shortest matching alias wins on ratio
+    expect(r.suggestions[0]!.isRange).toBe(true);
+    expect(r.suggestions[0]!.start.date).toBe("2026-06-13");
+    expect(r.suggestions[0]!.end.date).toBe("2027-01-01");
+    expect(r.ghost).toBe("ar");
+  });
+
+  test("expected kinds filter the surfaces: after 'in a' only units complete", () => {
+    const r = sug.suggest("in a w", CTX);
+    expect(r.suggestions[0]!.text).toBe("in a week");
+    expect(r.suggestions[0]!.start.date).toBe("2026-06-19");
+    expect(texts(r)).not.toContain("in a wednesday"); // WEEKDAY is not expected after DIRECTION(in)
+  });
+});
+
+describe("range-building mode after a CONNECTOR (spec §6)", () => {
+  test("'tomorrow to' suggests only real range ends", () => {
+    const r = sug.suggest("tomorrow to", CTX);
+    expect(r.suggestions.length).toBeGreaterThan(0);
+    for (const s of r.suggestions) {
+      expect(s.text.startsWith("tomorrow to ")).toBe(true);
+      expect(s.isRange).toBe(true); // degenerate ends ("tomorrow to tomorrow") are filtered
+    }
+  });
+  test("clean period ends get the boost", () => {
+    const r = sug.suggest("tomorrow to", CTX);
+    expect(r.suggestions[0]!.text).toBe("tomorrow to weekend");
+  });
+});

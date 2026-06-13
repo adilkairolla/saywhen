@@ -1,9 +1,11 @@
-import type { DateExpr, ParseContext } from "./types.js";
+import type { DateExpr, ParseContext, SemKind, SemToken } from "./types.js";
 import { createEngine, type CreateEngineOptions } from "./engine.js";
 import { buildVocabulary } from "./vocab.js";
-import { buildCatalog, buildSurfaceIndex, categoryWeight } from "./suggest-catalog.js";
+import { buildCatalog, buildSurfaceIndex, categoryWeight, CLOSED_KINDS } from "./suggest-catalog.js";
+import { buildGrammar } from "./grammar.js";
+import { buildLattice, expandStreams } from "./lattice.js";
 import { normalizeText } from "./normalize.js";
-import { buildKeyboardAdjacency, weightedDamerau } from "./typo.js";
+import { buildKeyboardAdjacency, correctToken, weightedDamerau } from "./typo.js";
 import { resolveExpr } from "./resolve.js";
 import { validateLocale } from "./lexicon.js";
 import { assertValidTimeZone, utcToWall, wallToUtc, type Wall } from "./zoned-date.js";
@@ -41,6 +43,15 @@ const W_POPULARITY = 0.15;
 const PROXIMITY_HORIZON_DAYS = 60;
 const FUZZY_RATIO_PENALTY = 0.7; // typo-matched prefixes count less than typed ones
 const DEFAULT_LIMIT = 5;
+const RANGE_END_BONUS = 0.1;       // range mode: clean ends (periods, boundaries)
+const COMPLETION_POPULARITY = 0.5; // grammar-path completions have no table entry
+const MAX_FRAGMENT_MATCHES = 12;   // surface matches tried per fragment split
+const MAX_K0_CONTINUATIONS = 24;   // continuations tried after a complete word
+const MAX_REPARSE = 24;            // total validation parses per suggest() call
+
+const RANGE_END_KINDS = new Set<SemKind>([
+  "WEEKDAY", "RELDAY", "MONTH", "HOLIDAY", "PERIOD", "BOUNDARY", "REL",
+]);
 
 interface Hit {
   expr: DateExpr;
@@ -64,6 +75,8 @@ export function createSuggest(options: CreateEngineOptions): SuggestEngine {
   const catalog = buildCatalog(vocab);
   const surfaces = buildSurfaceIndex(vocab);
   const adjacency = locale.keyboard ? buildKeyboardAdjacency(locale.keyboard) : null;
+  const grammar = buildGrammar(locale.rules ?? []);
+  const lexiconKeys = Object.keys(vocab.lexicon);
   const engine = createEngine(options); // validates grammar-path completions by re-parsing
 
   function suggest(text: string, ctx: SuggestContext): SuggestResult {
@@ -123,7 +136,88 @@ export function createSuggest(options: CreateEngineOptions): SuggestEngine {
       }
     }
 
-    // [Task 3 inserts the grammar-continuation block here; Task 4 appends fallbacks inside it]
+    if (input !== "") {
+      // ---- grammar continuations: parse the head, complete at the expectation frontier ----
+      const tokens = locale.tokenize(input);
+      const correct = adjacency
+        ? (raw: { text: string; span: [number, number] }) =>
+            correctToken(raw.text, lexiconKeys, locale.typoMap, adjacency)
+        : undefined;
+      let parses = 0;
+      const tryCompletion = (completion: string, bonus: number, requireRange: boolean) => {
+        if (parses >= MAX_REPARSE) return;
+        parses++;
+        const r = engine.parse(completion, {
+          now: ctx.now, timeZone: ctx.timeZone, weekStart, dateOrder, allowPast,
+        });
+        const cand = r.candidates[0];
+        if (!cand) return;
+        if (requireRange && cand.start.date === cand.end.date) return;
+        const resolved = resolveOk(cand.expr);
+        if (!resolved) return;
+        // prefer the locale's canonical rendering when it still completes the typed input AND
+        // is no longer than the literal completion — otherwise a holiday's first (canonical)
+        // alias would overwrite a shorter matched alias ("new year" → "new year's day") and a
+        // bare period would gain a redundant determiner ("weekend" → "this weekend").
+        const canon = locale.format(cand.expr, fmtOpts);
+        const final = canon.startsWith(input) && canon.length <= completion.length ? canon : completion;
+        hits.push({
+          expr: cand.expr, text: final, ratio: input.length / final.length,
+          popularity: COMPLETION_POPULARITY, bonus, resolved,
+        });
+      };
+
+      const lastToken = tokens[tokens.length - 1];
+      const startK = lastToken !== undefined && lastToken.text in vocab.lexicon ? 0 : 1;
+      const maxK = Math.min(3, tokens.length - 1);
+      for (let k = startK; k <= maxK; k++) {
+        const head = tokens.slice(0, tokens.length - k);
+        if (k > 0 && head.length === 0) break; // whole-input fragments are the catalog's job
+        const cells = buildLattice(head, vocab.lexicon, {
+          dateOrder,
+          parseNumber: (words: string[]) => locale.parseNumber(words),
+          phrases: vocab.phrases,
+          ...(correct ? { correct } : {}),
+        });
+        const kinds = new Set<SemKind>();
+        let rangeMode = false;
+        for (const stream of expandStreams(cells)) {
+          const { expectations } = grammar.parseStream(stream);
+          if (expectations.frontier !== stream.length) continue; // this reading broke earlier
+          for (const kk of expectations.kinds) kinds.add(kk);
+          const lastSem = [...stream].reverse().find((tk: SemToken) => tk.kind !== "FILLER");
+          if (lastSem?.kind === "CONNECTOR") rangeMode = true;
+        }
+        if (kinds.size === 0) continue;
+        const isEndKind = (kind: SemKind) => !rangeMode || RANGE_END_KINDS.has(kind);
+        const endBonus = (kind: SemKind) =>
+          rangeMode && (kind === "PERIOD" || kind === "BOUNDARY") ? RANGE_END_BONUS : 0;
+        if (k === 0) {
+          let tried = 0;
+          for (const kind of CLOSED_KINDS) {
+            if (!kinds.has(kind) || !isEndKind(kind)) continue;
+            for (const s of surfaces.canonicalByKind.get(kind) ?? []) {
+              if (tried >= MAX_K0_CONTINUATIONS) break;
+              tried++;
+              tryCompletion(`${input} ${s.text}`, endBonus(kind), rangeMode);
+            }
+          }
+        } else {
+          const fragment = input.slice(tokens[tokens.length - k]!.span[0]);
+          const headText = input.slice(0, tokens[tokens.length - k]!.span[0]);
+          let tried = 0;
+          for (const s of surfaces.matchable) {
+            if (tried >= MAX_FRAGMENT_MATCHES) break;
+            if (!kinds.has(s.payload.kind) || !isEndKind(s.payload.kind)) continue;
+            if (!s.text.startsWith(fragment) || s.text === fragment) continue;
+            tried++;
+            tryCompletion(headText + s.text, endBonus(s.payload.kind), rangeMode);
+          }
+        }
+      }
+
+      // [Task 4 appends the fallback block here, inside this if]
+    }
 
     // ---- score, dedupe, rank ----
     const scored: Suggestion[] = hits.map((h) => {
