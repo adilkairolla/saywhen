@@ -74,6 +74,12 @@ function rec(expr: DateExpr, ctx: Ctx): Resolved {
     }
 
     case "range": {
+      const sc = calendarAnchor(expr.start);
+      const ec = calendarAnchor(expr.end);
+      // new path only when both ends are calendar anchors and at least one names a month
+      if (sc && ec && (sc.m !== undefined || ec.m !== undefined)) {
+        return resolveCalendarRange(sc, ec, ctx);
+      }
       const start = rec(expr.start, ctx);
       // end is interpreted relative to where the range starts
       const end = rec(expr.end, { ...ctx, today: { ...start.start, h: 0, mi: 0 } });
@@ -151,6 +157,44 @@ function resolveAnchor(a: Anchor, ctx: Ctx): Resolved {
       throw new Error(`No upcoming date for holiday "${a.id}".`);
     }
   }
+}
+
+type CalAnchor = Extract<Anchor, { kind: "calendar" }>;
+
+function calendarAnchor(expr: DateExpr): CalAnchor | null {
+  return expr.type === "anchor" && expr.anchor.kind === "calendar" ? expr.anchor : null;
+}
+
+function ymd(w: Wall): string {
+  return `${w.y}-${String(w.m + 1).padStart(2, "0")}-${String(w.d).padStart(2, "0")}`;
+}
+
+function resolveCalendarPinned(a: CalAnchor, year: number, side: "start" | "end", ctx: Ctx): Resolved {
+  try {
+    return resolveCalendar({ ...a, y: year }, ctx);
+  } catch {
+    throw new Error(`The ${side} of the range isn't a valid date — that month has no day ${a.d}.`);
+  }
+}
+
+function resolveCalendarRange(startA: CalAnchor, endA: CalAnchor, ctx: Ctx): Resolved {
+  // month inheritance: a day-only endpoint borrows the other endpoint's explicit month
+  // (the caller only enters this path when at least one endpoint has a month, so this is defined)
+  const monthSource = (startA.m ?? endA.m)!;
+  const s: CalAnchor = startA.m === undefined ? { ...startA, m: monthSource } : startA;
+  const e: CalAnchor = endA.m === undefined ? { ...endA, m: monthSource } : endA;
+  // resolution year: own explicit → other's explicit → today's year (bare ranges prefer this year)
+  const baseYear = startA.y ?? endA.y ?? ctx.today.y;
+  const startRes = resolveCalendarPinned(s, startA.y ?? baseYear, "start", ctx);
+  let endRes = resolveCalendarPinned(e, endA.y ?? baseYear, "end", ctx);
+  if (compareWallDate(endRes.end, startRes.start) < 0) {
+    if (endA.y === undefined) {
+      endRes = resolveCalendarPinned(e, baseYear + 1, "end", ctx); // wrap forward a year
+    } else {
+      throw new Error(`That range ends before it starts (${ymd(startRes.start)} → ${ymd(endRes.end)}).`);
+    }
+  }
+  return { start: startRes.start, end: endRes.end, hasExplicitTime: false };
 }
 
 function resolveCalendar(a: Extract<Anchor, { kind: "calendar" }>, ctx: Ctx): Resolved {

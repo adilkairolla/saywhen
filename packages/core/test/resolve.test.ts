@@ -190,3 +190,38 @@ describe("compound expressions", () => {
     expect(resolveExpr(e, OPTS).ok).toBe(false);
   });
 });
+
+describe("calendar-range year inference (§3)", () => {
+  const range = (start: object, end: object): DateExpr =>
+    ({ type: "range", start: anchor(start), end: anchor(end) });
+
+  test("bare past range prefers the current year", () => {
+    expect(day(resolveExpr(range({ kind: "calendar", m: 1, d: 24 }, { kind: "calendar", m: 2, d: 5 }), OPTS)))
+      .toEqual({ start: "2026-02-24", end: "2026-03-05" });
+  });
+
+  test("explicit end year propagates to the bare start", () => {
+    expect(day(resolveExpr(range({ kind: "calendar", m: 1, d: 24 }, { kind: "calendar", m: 5, d: 30, y: 2026 }), OPTS)))
+      .toEqual({ start: "2026-02-24", end: "2026-06-30" });
+  });
+
+  test("wrap: end before start (bare) rolls the end forward a year", () => {
+    expect(day(resolveExpr(range({ kind: "calendar", m: 10, d: 1 }, { kind: "calendar", m: 1, d: 28 }), OPTS)))
+      .toEqual({ start: "2026-11-01", end: "2027-02-28" });
+  });
+
+  test("month elision: a day-only end inherits the start's month", () => {
+    expect(day(resolveExpr(range({ kind: "calendar", m: 2, d: 1 }, { kind: "calendar", d: 15 }), OPTS)))
+      .toEqual({ start: "2026-03-01", end: "2026-03-15" });
+  });
+
+  test("monthless ordinal range is unchanged (anchors to today's month)", () => {
+    expect(day(resolveExpr(range({ kind: "calendar", d: 21 }, { kind: "calendar", d: 25 }), OPTS)))
+      .toEqual({ start: "2026-06-21", end: "2026-06-25" });
+  });
+
+  test("invalid endpoint is attributed to its side", () => {
+    const r = resolveExpr(range({ kind: "calendar", m: 5, d: 31 }, { kind: "calendar", m: 6, d: 5 }), OPTS);
+    expect(r).toMatchObject({ ok: false, error: expect.stringMatching(/start of the range.*no day 31/i) });
+  });
+});
