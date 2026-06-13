@@ -21,4 +21,21 @@ describe("playground App", () => {
     fireEvent.change(input, { target: { value: "за" } });
     expect(screen.getByText("втра")).toBeDefined(); // ghost of "завтра"
   });
+
+  test("switching to Kazakh re-renders in Cyrillic", () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: /қазақша/i }));
+    const input = screen.getByRole("combobox");
+    fireEvent.change(input, { target: { value: "ер" } });
+    expect(screen.getByText("тең")).toBeDefined(); // ghost of "ертең"
+  });
+
+  test("Kazakh script sub-toggle switches canonical output to Latin", () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: /қазақша/i }));
+    fireEvent.click(screen.getByRole("button", { name: /latyn/i }));
+    const input = screen.getByRole("combobox");
+    fireEvent.change(input, { target: { value: "er" } });
+    expect(screen.getByText("teñ")).toBeDefined(); // ghost of "erteñ" = cyrToLat("ертең")
+  });
 });

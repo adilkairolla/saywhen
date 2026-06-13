@@ -50,6 +50,9 @@ importers:
       '@saywhen/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@saywhen/holidays-kk':
+        specifier: workspace:*
+        version: link:../../packages/holidays-kk
       '@saywhen/holidays-ru':
         specifier: workspace:*
         version: link:../../packages/holidays-ru
@@ -59,6 +62,9 @@ importers:
       '@saywhen/locale-en':
         specifier: workspace:*
         version: link:../../packages/locale-en
+      '@saywhen/locale-kk':
+        specifier: workspace:*
+        version: link:../../packages/locale-kk
       '@saywhen/locale-ru':
         specifier: workspace:*
         version: link:../../packages/locale-ru
