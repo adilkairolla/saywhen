@@ -51,6 +51,7 @@ describe("relative, periods, ranges, time (kk)", () => {
     ["дүйсенбіден жұмаға дейін", "2026-06-15", "2026-06-19"], // postpositional range (core rule)
     ["дүйсенбі - жұма", "2026-06-15", "2026-06-19"],          // dash range (canonical form)
     ["келесі жұма + 2 апта", "2026-07-03", "2026-07-03"],
+    ["2 апта бұрын - бүгін", "2026-05-29", "2026-06-12"],     // backward offset composes as range endpoint (core agoP)
   ])("'%s' → %s..%s", (text, start, end) => {
     const c = top(text);
     expect(c.start.date).toBe(start);
@@ -65,5 +66,15 @@ describe("times (Almaty = UTC+5)", () => {
     ["дүйсенбі сағат 9:30", "2026-06-15T04:30:00.000Z"],
   ])("'%s' → %s", (text, iso) => {
     expect(top(text).start.utcIso).toBe(iso);
+  });
+});
+
+describe("postpositional boundaries (kk locale rule)", () => {
+  test.each([
+    ["осы ай соңы", "2026-06-30"],       // end of this month
+    ["келесі апта басы", "2026-06-15"],  // start of next week (Monday)
+    ["ай соңы", "2026-06-30"],           // bare period (no REL) → this
+  ])("'%s' → %s", (text, date) => {
+    expect(top(text).start.date).toBe(date);
   });
 });

@@ -1,9 +1,9 @@
 import type {
-  Anchor, DateExpr, FormatOptions, Lexicon, LocaleAdapter, LocaleRule, RawToken, SemPayload, Unit,
+  Anchor, DateExpr, FormatOptions, Lexicon, LocaleAdapter, LocaleRule, PeriodRef, RawToken, Rel, SemPayload, Unit,
 } from "@saywhen/core";
 import { cyrToLat } from "./translit.js";
 import {
-  CARDINALS, CONNECTORS, DIRECTIONS, FILLERS, KEYBOARD_ROWS, MERIDIEMS, MONTH_ABBR,
+  BOUNDARIES, CARDINALS, CONNECTORS, DIRECTIONS, FILLERS, KEYBOARD_ROWS, MERIDIEMS, MONTH_ABBR,
   MONTHS_LOC, MONTHS_NOM, ORDINALS, PERIOD_NOUNS, QUARTER_FORMS, RELDAYS, REL_FORMS,
   REL_NOM, SEASONS, TENS, TYPO_MAP, UNIT_ABL, UNIT_FORMS, UNIT_NOM, WEEKDAYS, WEEKEND_FORMS,
 } from "./data.js";
@@ -44,6 +44,8 @@ function buildLexicon(): Lexicon {
   SEASONS.forEach((s, i) => add(s.lexicon, { kind: "PERIOD", period: { kind: "season", s: i as 0 | 1 | 2 | 3 } }));
 
   for (const [dir, forms] of DIRECTIONS) add(forms, { kind: "DIRECTION", dir });
+  add(BOUNDARIES.start, { kind: "BOUNDARY", edge: "start" });
+  add(BOUNDARIES.end, { kind: "BOUNDARY", edge: "end" });
   add(CONNECTORS, { kind: "CONNECTOR" });
   add(["-"], { kind: "CONNECTOR" });
   add(["+", "плюс"], { kind: "OP", op: 1 });
@@ -84,9 +86,11 @@ function tokenize(text: string): RawToken[] {
   return out;
 }
 
-// ---- Kazakh forward offset: "N <unit> кейін/бұрын" (postpositional, from now) ----
-// The core has prepositional `in` and postpositional `ago` only; this supplies the missing
-// postpositional forward/backward offset. Hand-written walk (core exports no combinators);
+// ---- Kazakh forward offset: "N <unit> кейін/соң" (postpositional, forward from now) ----
+// The core has prepositional `in` (forward) and postpositional `agoP` (backward) only; this
+// supplies the missing postpositional FORWARD offset. Backward ("N <unit> бұрын") maps to
+// DIRECTION "ago" and is parsed by the core agoP, which keeps it inside exprP so it composes
+// as a range endpoint (the lookback span). Hand-written walk (core exports no combinators);
 // it wins only when nothing follows the direction word — otherwise relOffsetP takes a base.
 const NOW: DateExpr = { type: "anchor", anchor: { kind: "now" } };
 const kkOffsetRule: LocaleRule = {
@@ -102,11 +106,36 @@ const kkOffsetRule: LocaleRule = {
     if (!unit || unit.kind !== "UNIT") return null;
     j = skip(j + 1);
     const dir = toks[j];
-    if (!dir || dir.kind !== "DIRECTION" || (dir.dir !== "after" && dir.dir !== "before")) return null;
-    return {
-      expr: { type: "offset", base: NOW, n, unit: unit.unit, dir: dir.dir === "after" ? 1 : -1 },
-      next: j + 1,
-    };
+    if (!dir || dir.kind !== "DIRECTION" || dir.dir !== "after") return null;
+    return { expr: { type: "offset", base: NOW, n, unit: unit.unit, dir: 1 }, next: j + 1 };
+  },
+};
+
+// ---- Kazakh postpositional boundary: "<period> басы/соңы" (start/end of a period) ----
+// "осы ай соңы" = end of this month, "келесі апта басы" = start of next week. A LOCALE rule
+// (not a core change) so the prepositional en/ru grammar is untouched. Parses an optional REL,
+// a period noun (UNIT week/month/year or a PERIOD token), then a trailing BOUNDARY word.
+const kkBoundaryRule: LocaleRule = {
+  name: "kk-postfix-boundary",
+  at: "expression",
+  match(toks, i) {
+    const skip = (j: number) => { while (j < toks.length && toks[j]?.kind === "FILLER") j++; return j; };
+    let j = skip(i);
+    let which: Rel = "this";
+    const rel = toks[j];
+    if (rel && rel.kind === "REL") { which = rel.which; j = skip(j + 1); }
+    const noun = toks[j];
+    let period: PeriodRef | null = null;
+    if (noun && noun.kind === "UNIT" && (noun.unit === "week" || noun.unit === "month" || noun.unit === "year")) {
+      period = { kind: noun.unit };
+    } else if (noun && noun.kind === "PERIOD") {
+      period = noun.period;
+    }
+    if (!period) return null;
+    j = skip(j + 1);
+    const b = toks[j];
+    if (!b || b.kind !== "BOUNDARY") return null;
+    return { expr: { type: "boundary", of: { type: "period", period, which }, edge: b.edge }, next: j + 1 };
   },
 };
 
@@ -205,7 +234,7 @@ export const kk: LocaleAdapter = {
   tokenize,
   lexicon,
   parseNumber,
-  rules: [kkOffsetRule],
+  rules: [kkOffsetRule, kkBoundaryRule],
   format: (expr, opts: FormatOptions) => format(expr, opts.holidayNames ?? {}),
   formatAccessible: (expr, opts: FormatOptions) => accessible(expr, opts.holidayNames ?? {}),
   keyboard: { rows: KEYBOARD_ROWS },

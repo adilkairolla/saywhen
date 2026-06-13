@@ -82,14 +82,24 @@ export const SEASONS: Array<{ nom: string; lexicon: string[] }> = [
 ];
 
 // ---------- function words ----------
-// кейін (after) and бұрын (before) are postpositional → DIRECTION; the kk forward-offset
-// rule + the core relOffsetP consume them. дейін/шейін (until) → CONNECTOR (range, via the
-// core rangePostfixP). "-" is also a CONNECTOR (medial dash, the canonical range form).
-export const DIRECTIONS: Array<["after" | "before", string[]]> = [
+// кейін/соң (after) is postpositional-forward → DIRECTION "after", consumed by the kk
+// forward-offset rule. бұрын (ago) maps to DIRECTION "ago" so the CORE's agoP parses
+// "N <unit> бұрын" — that keeps it inside exprP, so a backward offset composes as a range
+// endpoint ("2 апта бұрын - бүгін", the lookback span). дейін/шейін (until) → CONNECTOR
+// (range, via the core rangePostfixP). "-" is also a CONNECTOR (medial dash range form).
+export const DIRECTIONS: Array<["after" | "ago", string[]]> = [
   ["after", ["кейін", "соң"]],
-  ["before", ["бұрын"]],
+  ["ago", ["бұрын"]],
 ];
 export const CONNECTORS = ["дейін", "шейін"];
+
+// басы (start) / соңы (end) trail their target → BOUNDARY. A kk LOCALE rule (kkBoundaryRule,
+// not a core rule) parses "<period> BOUNDARY" postpositionally ("осы ай соңы" = end of this
+// month), so the prepositional en/ru grammar is untouched.
+export const BOUNDARIES: Record<"start" | "end", string[]> = {
+  start: ["басы", "басында"],
+  end: ["соңы", "соңында", "аяғы"],
+};
 
 export const MERIDIEMS: Array<["am" | "pm", string[]]> = [
   ["am", ["таңғы", "таңертеңгі"]],
