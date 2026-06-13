@@ -1,7 +1,7 @@
 import { defineConfig } from "tsdown";
 
 export default defineConfig({
-  entry: ["src/index.ts", "src/suggest.ts"],
+  entry: ["src/index.ts", "src/suggest.ts", "src/controller.ts"],
   format: ["esm"],
   dts: true,
   outDir: "dist",
